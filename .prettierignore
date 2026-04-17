@@ -1,0 +1,7 @@
+node_modules/
+lib/
+.expo/
+dist/
+*.tsbuildinfo
+package-lock.json
+yarn.lock

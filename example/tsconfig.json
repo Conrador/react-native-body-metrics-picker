@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "react-native-body-metrics-picker": ["../src/index"],
+      "react-native-body-metrics-picker/*": ["../src/*"]
+    }
+  }
+}
