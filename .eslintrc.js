@@ -40,5 +40,11 @@ module.exports = {
     'react-native/no-inline-styles': 'warn',
     'react-native/no-color-literals': 'off',
   },
-  ignorePatterns: ['lib/', 'node_modules/', 'example/metro.config.js', 'babel.config.js'],
+  ignorePatterns: [
+    'lib/',
+    'node_modules/',
+    'example/metro.config.js',
+    'example/plugins/withIosPodsCpp20.js',
+    'babel.config.js',
+  ],
 };

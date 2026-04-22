@@ -1,5 +1,6 @@
 node_modules/
 lib/
+codegen-out/
 .expo/
 dist/
 *.tsbuildinfo
@@ -7,6 +8,9 @@ dist/
 .yarn/cache
 .yarn/unplugged
 .yarn/install-state.gz
+
+# Old example backup (remove after verifying new example)
+example-legacy/
 
 # Native / Expo prebuild
 example/ios/Pods/

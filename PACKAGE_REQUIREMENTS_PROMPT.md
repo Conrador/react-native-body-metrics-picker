@@ -40,8 +40,7 @@ The UX should feel:
 
 For now, implement ONLY:
 
-- `HeightRuler`
-- `HeightPicker`
+- `HeightRuler` (JS/Reanimated; native Fabric ruler planned)
 
 ❌ Do NOT implement:
 
@@ -55,8 +54,7 @@ For now, implement ONLY:
 
 These will exist later:
 
-- HeightRuler
-- HeightPicker
+- HeightRuler (native)
 - WeightRuler
 - WeightPicker
 - AgePicker
@@ -106,25 +104,9 @@ UX:
 
 ---
 
-### 🔹 HeightPicker
+### 🔹 HeightPicker (removed)
 
-Higher-level component using `HeightRuler`.
-
-Must:
-
-- allow height selection
-- support unit switching (metric ↔ imperial)
-- preserve real value during switching
-- display formatted value
-- support controlled usage
-- support default values
-- support min/max
-
-Designed for:
-
-- forms
-- onboarding
-- future bottom sheet integration
+Previously a bottom-sheet wrapper; removed to focus on native `HeightRuler` and simpler dependencies. Rebuild as app-level UI if needed.
 
 ---
 
@@ -162,18 +144,9 @@ Do NOT treat accessibility as optional.
 
 ---
 
-## 🎬 Animations
+## 🎬 Motion
 
-Use:
-
-- `react-native-reanimated`
-
-Include:
-
-- active value scaling
-- opacity interpolation
-- smooth snapping
-- subtle motion only (no flashy animations)
+The height ruler is **native** (UIKit / Android scroll). Snapping and selection highlighting are implemented on the native side — **no** Reanimated or Gesture Handler.
 
 ---
 
@@ -184,15 +157,11 @@ Set up:
 - react
 - react-native
 - typescript
-- react-native-reanimated
-- react-native-gesture-handler
-- @gorhom/bottom-sheet (prepare support, not required fully now)
-- expo-haptics (in example app)
 
 Ensure:
 
-- Reanimated config is correct
-- Gesture Handler works properly
+- iOS: CocoaPods links `react-native-body-metrics-picker`
+- Android: autolinking includes the library `BodyMetricsPickerPackage`
 
 ---
 
@@ -202,7 +171,6 @@ Structure:
 src/
 components/
 HeightRuler/
-HeightPicker/
 utils/
 conversions/
 formatters/
@@ -224,11 +192,7 @@ Goals:
 Example:
 
 ```tsx
-<HeightPicker
-  unitSystem="metric"
-  value={{ unitSystem: 'metric', cm: 180 }}
-  onChange={handleChange}
-/>
+<HeightRuler unit="cm" initialValue={180} onValueChange={setHeight} />
 
 Requirements:
 simple API
@@ -242,11 +206,9 @@ located in example/
 linked to local package
 demo screen with:
 HeightRuler
-HeightPicker
 unit switching
 formatted display
-scaffold for bottom sheet
-include haptics setup
+Reanimated + Gesture Handler setup
 ensure Reanimated works
 
 📦 Deliverables
@@ -254,7 +216,6 @@ Generate:
 package structure
 TypeScript setup
 HeightRuler
-HeightPicker
 conversion utils
 formatting utils
 accessibility support
@@ -279,7 +240,6 @@ placeholder-only code
 🚫 Constraints
 ONLY implement:
 HeightRuler
-HeightPicker
 
 Prepare for:
 WeightRuler
@@ -295,7 +255,6 @@ folder structure
 package setup
 Expo example setup
 HeightRuler implementation
-HeightPicker implementation
 demo screen
 README MVP section
 
