@@ -209,20 +209,6 @@ public final class RNHeightRulerHostingView: UIView {
     }
   }
 
-  @objc public var colorBackground: String = "#FFFFFF" {
-    didSet {
-      model.colorBackground = colorBackground
-      scheduleRulerSync()
-    }
-  }
-
-  @objc public var colorRulerChrome: String = "rgba(0, 0, 0, 0)" {
-    didSet {
-      model.colorRulerChrome = colorRulerChrome
-      scheduleRulerSync()
-    }
-  }
-
   @objc public var colorTick: String = "#D1D5DB" {
     didSet {
       model.colorTick = colorTick
@@ -240,48 +226,6 @@ public final class RNHeightRulerHostingView: UIView {
   @objc public var colorMajorTick: String = "#374151" {
     didSet {
       model.colorMajorTick = colorMajorTick
-      scheduleRulerSync()
-    }
-  }
-
-  @objc public var colorSelectedTick: String = "#D1D5DB" {
-    didSet {
-      model.colorSelectedTick = colorSelectedTick
-      scheduleRulerSync()
-    }
-  }
-
-  @objc public var colorGlassSurface: String = "rgba(255, 255, 255, 0.22)" {
-    didSet {
-      model.colorGlassSurface = colorGlassSurface
-      scheduleRulerSync()
-    }
-  }
-
-  @objc public var colorGlassBorder: String = "rgba(60, 60, 67, 0.16)" {
-    didSet {
-      model.colorGlassBorder = colorGlassBorder
-      scheduleRulerSync()
-    }
-  }
-
-  @objc public var colorGlassSheen: String = "rgba(255, 255, 255, 0.32)" {
-    didSet {
-      model.colorGlassSheen = colorGlassSheen
-      scheduleRulerSync()
-    }
-  }
-
-  @objc public var colorGlassRim: String = "rgba(10, 20, 40, 0.07)" {
-    didSet {
-      model.colorGlassRim = colorGlassRim
-      scheduleRulerSync()
-    }
-  }
-
-  @objc public var colorGlassLiquidBorder: String = "rgba(255, 255, 255, 0.78)" {
-    didSet {
-      model.colorGlassLiquidBorder = colorGlassLiquidBorder
       scheduleRulerSync()
     }
   }

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +10,8 @@ import {
 } from 'react-native-body-metrics-picker';
 
 const DARK_CARD_BACKGROUND = '#0F172A';
+/** Same fill for card + native ruler (background + chrome) so nothing „gryzie” z tłem karty. */
+const AURORA_CARD_BG = '#F5F3FF';
 
 const CM_PER_FOOT = 30.48;
 
@@ -37,6 +39,7 @@ export default function HomeScreen() {
   const [switcherUnit, setSwitcherUnit] = useState<HeightUnit>('cm');
   const [darkSwitcherValue, setDarkSwitcherValue] = useState('178');
   const [darkSwitcherUnit, setDarkSwitcherUnit] = useState<HeightUnit>('cm');
+  const [auroraValue, setAuroraValue] = useState('172');
 
   const handleCmOnlyChange = useCallback((value: string) => {
     setCmOnlyValue(value);
@@ -63,7 +66,15 @@ export default function HomeScreen() {
     setDarkSwitcherUnit(unit);
   }, []);
 
-  console.log(switcherValue, 'switcherValue');
+  const handleAuroraChange = useCallback((value: string) => {
+    setAuroraValue(value);
+  }, []);
+
+  const auroraLabelFont = Platform.select({
+    ios: 'AvenirNext-DemiBold',
+    android: 'sans-serif-medium',
+    default: undefined,
+  });
 
   return (
     <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
@@ -85,11 +96,9 @@ export default function HomeScreen() {
                 unit="cm"
                 initialValue={Number(cmOnlyValue)}
                 onValueChange={handleCmOnlyChange}
-                backgroundColor="#FFFFFF"
                 tickColor="#E5E7EB"
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
-                selectedTickColor="#D1D5DB"
                 tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
@@ -116,11 +125,9 @@ export default function HomeScreen() {
                 unit="ft"
                 initialValue={Number(ftOnlyValue)}
                 onValueChange={handleFtOnlyChange}
-                backgroundColor="#FFFFFF"
                 tickColor="#E5E7EB"
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
-                selectedTickColor="#D1D5DB"
                 tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
@@ -137,6 +144,43 @@ export default function HomeScreen() {
               {formatFeetInchesFromCm(ftOnlyValue)} ({formatFeetDecimalFromCm(ftOnlyValue)} ft) ·{' '}
               {ftOnlyValue} cm
             </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ruler - cm (custom theme)</Text>
+          <Text style={styles.sectionDescription}>
+            Inne kolory ticków i szkła oraz{' '}
+            <Text style={styles.inlineCode}>fontFamily</Text> /{' '}
+            <Text style={styles.inlineCode}>tickLabelFontSize</Text> — etykiety korzystają z kolorów
+            major/mid ticków po stronie natywnej.
+          </Text>
+
+          <View style={[styles.rulerCard, styles.rulerCardAurora]}>
+            <View style={styles.rulerWrap}>
+              <HeightRuler
+                unit="cm"
+                initialValue={Number(auroraValue)}
+                onValueChange={handleAuroraChange}
+                fontFamily={auroraLabelFont}
+                tickLabelFontSize={21}
+                tickColor="#DDD6FE"
+                midTickColor="#7C3AED"
+                majorTickColor="#4C1D95"
+                glassActiveTickColor="#C026D3"
+                glassActiveNeighborTickColor="rgba(192, 38, 211, 0.72)"
+                minorTickHeight={17}
+                midTickHeight={27}
+                majorTickHeight={44}
+                tickWidth={2}
+                tickSpacing={14}
+              />
+            </View>
+          </View>
+
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugLabel}>Value</Text>
+            <Text style={styles.debugValue}>{auroraValue} cm</Text>
           </View>
         </View>
 
@@ -163,11 +207,9 @@ export default function HomeScreen() {
                 unit={switcherUnit}
                 initialValue={Number(switcherValue)}
                 onValueChange={handleSwitcherRulerChange}
-                backgroundColor="#FFFFFF"
                 tickColor="#E5E7EB"
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
-                selectedTickColor="#D1D5DB"
                 tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
@@ -213,17 +255,9 @@ export default function HomeScreen() {
                 unit={darkSwitcherUnit}
                 initialValue={Number(darkSwitcherValue)}
                 onValueChange={handleDarkSwitcherRulerChange}
-                backgroundColor={DARK_CARD_BACKGROUND}
-                rulerChromeColor="rgba(0,0,0,0)"
                 tickColor="#374151"
                 midTickColor="#9CA3AF"
                 majorTickColor="#E5E7EB"
-                selectedTickColor="#9CA3AF"
-                glassSurfaceColor="rgba(255,255,255,0.18)"
-                glassBorderColor="rgba(255,255,255,0.16)"
-                glassSheenColor="rgba(255,255,255,0.30)"
-                glassRimColor="rgba(255,255,255,0.09)"
-                glassLiquidBorderColor="rgba(255,255,255,0.46)"
                 glassActiveTickColor="#60A5FA"
                 glassActiveNeighborTickColor="rgba(96, 165, 250, 0.7)"
                 tickLabelFontSize={19}
@@ -302,6 +336,18 @@ const styles = StyleSheet.create({
   },
   rulerCardDark: {
     backgroundColor: DARK_CARD_BACKGROUND,
+  },
+  rulerCardAurora: {
+    backgroundColor: AURORA_CARD_BG,
+    borderWidth: 1,
+    borderColor: '#E9D5FF',
+    shadowColor: '#6D28D9',
+    shadowOpacity: 0.12,
+  },
+  inlineCode: {
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace' }),
+    fontSize: 13,
+    color: '#5B21B6',
   },
   switcherWrap: {
     alignItems: 'center',

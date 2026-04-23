@@ -129,17 +129,9 @@ static void RNBMHeightRulerApplyNativeBounds(RNHeightRulerHostingView *host, NSS
   _rulerHost.tickLabelFontSize = newRulerProps.tickLabelFontSize;
   _rulerHost.fontFamily = RNBMNSString(newRulerProps.fontFamily);
   _rulerHost.longStepInterval = newRulerProps.longStepInterval;
-  _rulerHost.colorBackground = RNBMNSString(newRulerProps.colorBackground);
-  _rulerHost.colorRulerChrome = RNBMNSString(newRulerProps.colorRulerChrome);
   _rulerHost.colorTick = RNBMNSString(newRulerProps.colorTick);
   _rulerHost.colorMidTick = RNBMNSString(newRulerProps.colorMidTick);
   _rulerHost.colorMajorTick = RNBMNSString(newRulerProps.colorMajorTick);
-  _rulerHost.colorSelectedTick = RNBMNSString(newRulerProps.colorSelectedTick);
-  _rulerHost.colorGlassSurface = RNBMNSString(newRulerProps.colorGlassSurface);
-  _rulerHost.colorGlassBorder = RNBMNSString(newRulerProps.colorGlassBorder);
-  _rulerHost.colorGlassSheen = RNBMNSString(newRulerProps.colorGlassSheen);
-  _rulerHost.colorGlassRim = RNBMNSString(newRulerProps.colorGlassRim);
-  _rulerHost.colorGlassLiquidBorder = RNBMNSString(newRulerProps.colorGlassLiquidBorder);
   _rulerHost.colorGlassActiveTick = RNBMNSString(newRulerProps.colorGlassActiveTick);
   _rulerHost.colorGlassActiveNeighborTick = RNBMNSString(newRulerProps.colorGlassActiveNeighborTick);
 

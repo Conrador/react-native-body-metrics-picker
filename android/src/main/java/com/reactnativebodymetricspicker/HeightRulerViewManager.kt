@@ -143,18 +143,6 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
     view.markNeedsReload()
   }
 
-  @ReactProp(name = "colorBackground")
-  fun setColorBackground(view: HeightRulerView, v: String?) {
-    view.colorBackground = v ?: "#FFFFFF"
-    view.markNeedsReload()
-  }
-
-  @ReactProp(name = "colorRulerChrome")
-  fun setColorRulerChrome(view: HeightRulerView, v: String?) {
-    view.colorRulerChrome = v ?: "rgba(0, 0, 0, 0)"
-    view.markNeedsReload()
-  }
-
   @ReactProp(name = "colorTick")
   fun setColorTick(view: HeightRulerView, v: String?) {
     view.colorTick = v ?: "#D1D5DB"
@@ -170,42 +158,6 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
   @ReactProp(name = "colorMajorTick")
   fun setColorMajorTick(view: HeightRulerView, v: String?) {
     view.colorMajorTick = v ?: "#374151"
-    view.markNeedsReload()
-  }
-
-  @ReactProp(name = "colorSelectedTick")
-  fun setColorSelectedTick(view: HeightRulerView, v: String?) {
-    view.colorSelectedTick = v ?: "#D1D5DB"
-    view.markNeedsReload()
-  }
-
-  @ReactProp(name = "colorGlassSurface")
-  fun setColorGlassSurface(view: HeightRulerView, v: String?) {
-    view.colorGlassSurface = v ?: "rgba(255, 255, 255, 0.22)"
-    view.markNeedsReload()
-  }
-
-  @ReactProp(name = "colorGlassBorder")
-  fun setColorGlassBorder(view: HeightRulerView, v: String?) {
-    view.colorGlassBorder = v ?: "rgba(60, 60, 67, 0.16)"
-    view.markNeedsReload()
-  }
-
-  @ReactProp(name = "colorGlassSheen")
-  fun setColorGlassSheen(view: HeightRulerView, v: String?) {
-    view.colorGlassSheen = v ?: "rgba(255, 255, 255, 0.32)"
-    view.markNeedsReload()
-  }
-
-  @ReactProp(name = "colorGlassRim")
-  fun setColorGlassRim(view: HeightRulerView, v: String?) {
-    view.colorGlassRim = v ?: "rgba(10, 20, 40, 0.07)"
-    view.markNeedsReload()
-  }
-
-  @ReactProp(name = "colorGlassLiquidBorder")
-  fun setColorGlassLiquidBorder(view: HeightRulerView, v: String?) {
-    view.colorGlassLiquidBorder = v ?: "rgba(255, 255, 255, 0.78)"
     view.markNeedsReload()
   }
 

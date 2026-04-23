@@ -32,17 +32,9 @@ export interface NativeProps extends ViewProps {
   fontFamily?: string | null;
   longStepInterval: Int32;
   imperialMinInches: Int32;
-  colorBackground: string;
-  colorRulerChrome: string;
   colorTick: string;
   colorMidTick: string;
   colorMajorTick: string;
-  colorSelectedTick: string;
-  colorGlassSurface: string;
-  colorGlassBorder: string;
-  colorGlassSheen: string;
-  colorGlassRim: string;
-  colorGlassLiquidBorder: string;
   colorGlassActiveTick: string;
   colorGlassActiveNeighborTick: string;
   onValueChange?: DirectEventHandler<ValueChangeEvent> | null;

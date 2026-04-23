@@ -83,6 +83,14 @@ private fun parseColor(s: String?): Int {
   return Color.GRAY
 }
 
+/** Glass chrome is fixed — only glass active tick colors are React props. */
+private object HeightRulerFixedGlassChrome {
+  const val SURFACE = "rgba(255, 255, 255, 0.22)"
+  const val BORDER = "rgba(60, 60, 67, 0.16)"
+  const val SHEEN = "rgba(255, 255, 255, 0.32)"
+  const val RIM = "rgba(10, 20, 40, 0.07)"
+}
+
 class HeightRulerView(context: Context) : FrameLayout(context) {
   private val scrollView = NestedScrollView(context)
   private val inner = FrameLayout(context)
@@ -114,17 +122,9 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   var longStepInterval = 10
   var imperialMinInches = 39
 
-  var colorBackground = "#FFFFFF"
-  var colorRulerChrome = "rgba(0, 0, 0, 0)"
   var colorTick = "#D1D5DB"
   var colorMidTick = "#6B7280"
   var colorMajorTick = "#374151"
-  var colorSelectedTick = "#D1D5DB"
-  var colorGlassSurface = "rgba(255, 255, 255, 0.22)"
-  var colorGlassBorder = "rgba(60, 60, 67, 0.16)"
-  var colorGlassSheen = "rgba(255, 255, 255, 0.32)"
-  var colorGlassRim = "rgba(10, 20, 40, 0.07)"
-  var colorGlassLiquidBorder = "rgba(255, 255, 255, 0.78)"
   var colorGlassActiveTick = "#0A84FF"
   var colorGlassActiveNeighborTick = "rgba(10, 132, 255, 0.72)"
 
@@ -398,8 +398,8 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
         round((rangeMax - rangeMin) / step).toInt().coerceAtLeast(0)
       }
 
-    setBackgroundColor(parseColor(colorBackground))
-    chromeBg.setBackgroundColor(parseColor(colorRulerChrome))
+    setBackgroundColor(Color.TRANSPARENT)
+    chromeBg.setBackgroundColor(Color.TRANSPARENT)
 
     val rowW = if (width > 0) width else dp(rulerTrackWidth).toInt()
     val labelW = dp(labelColumnWidth).toInt()
@@ -510,16 +510,16 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     glass.removeAllViews()
     if (widthPx <= 0 || glassH <= 0) return
 
-    val fill = View(context).apply { setBackgroundColor(parseColor(colorGlassSurface)) }
+    val fill = View(context).apply { setBackgroundColor(parseColor(HeightRulerFixedGlassChrome.SURFACE)) }
     glass.addView(fill, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
 
-    val sheen = View(context).apply { setBackgroundColor(parseColor(colorGlassSheen)) }
+    val sheen = View(context).apply { setBackgroundColor(parseColor(HeightRulerFixedGlassChrome.SHEEN)) }
     glass.addView(
       sheen,
       FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, (glassH * 0.54).toInt()),
     )
 
-    val rim = View(context).apply { setBackgroundColor(parseColor(colorGlassRim)) }
+    val rim = View(context).apply { setBackgroundColor(parseColor(HeightRulerFixedGlassChrome.RIM)) }
     glass.addView(
       rim,
       FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, 1).apply { gravity = Gravity.BOTTOM },
@@ -529,7 +529,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     gd.cornerRadius = glassH / 2f
     gd.setStroke(
       max(1, (1f / resources.displayMetrics.density).toInt()),
-      parseColor(colorGlassBorder),
+      parseColor(HeightRulerFixedGlassChrome.BORDER),
     )
     glass.background = gd
   }
@@ -578,7 +578,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     val startPx = lp.width
     val anim =
       ValueAnimator.ofInt(startPx, targetPx).apply {
-        duration = 265L
+        duration = 600L
         interpolator = tickBarWidthEase
         addUpdateListener { va ->
           lp.width = va.animatedValue as Int
@@ -720,7 +720,9 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
       // Keep text in a wider window and fade with alpha to prevent threshold flicker.
       val showGlassLabelText = dist <= 1.8f
       // Glass is about 3 ticks tall, so keep scaling local to center + two neighbors.
-      val wave = kotlin.math.exp(-kotlin.math.pow((dist / 0.9f).toDouble(), 2.0)).toFloat()
+      val waveSigma = 0.82f
+      val wave = kotlin.math.exp(-kotlin.math.pow((dist / waveSigma).toDouble(), 2.0)).toFloat()
+      val waveStrength = 1.32f
       val centerGlow = kotlin.math.exp(-kotlin.math.pow((dist / 0.45f).toDouble(), 2.0)).toFloat()
       val neighborGlow = kotlin.math.exp(-kotlin.math.pow(((dist - 1f) / 0.55f).toDouble(), 2.0)).toFloat()
       val neighborBlend = min(1f, neighborGlow * 0.72f)
@@ -729,10 +731,13 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
       val highlighted = ColorUtils.blendARGB(neighborTinted, cActive, centerBlend)
       bar.setBackgroundColor(highlighted)
       bar.pivotX = 0f
-      bar.scaleX = 1f + (gainX * wave)
-      bar.scaleY = 1f + (gainY * wave)
-      // Slight extra shift right for the tick under the glass (matches iOS `tickSelectionNudgeX`).
-      bar.translationX = dp(4.0).toFloat() * wave + dp(5.25).toFloat() * centerGlow
+      bar.scaleX = 1f + (gainX * wave * waveStrength)
+      bar.scaleY = 1f + (gainY * wave * waveStrength)
+      // Center nudges right most; neighbors under the glass nudge slightly right (lekko wysunięte).
+      bar.translationX =
+        dp(4.35).toFloat() * wave +
+        dp(5.6).toFloat() * centerGlow +
+        dp(2.75).toFloat() * neighborGlow
 
       val label = tickLabels.getOrNull(i)
       if (label != null) {
@@ -753,8 +758,9 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
         val labelCenterGlow = kotlin.math.exp(-kotlin.math.pow((dist / 0.5f).toDouble(), 2.0)).toFloat()
         val labelNeighborGlow =
           kotlin.math.exp(-kotlin.math.pow(((dist - 1f) / 0.5f).toDouble(), 2.0)).toFloat()
-        val labelScaleRaw = max(0.96f, 1f + (0.12f * labelCenterGlow) - (0.04f * labelNeighborGlow))
-        val labelScale = 1f + ((labelScaleRaw - 1f) * glassLabelPresence)
+        val labelScaleRaw = max(0.96f, 1f + (0.14f * labelCenterGlow) - (0.035f * labelNeighborGlow))
+        val neighborLabelBoost = 1f + (0.042f * labelNeighborGlow * glassLabelPresence)
+        val labelScale = (1f + ((labelScaleRaw - 1f) * glassLabelPresence)) * neighborLabelBoost
         val labelAlphaRaw = max(0.72f, 1f - (0.28f * labelNeighborGlow))
         val labelAlpha = if (always) {
           1f + ((labelAlphaRaw - 1f) * glassLabelPresence)

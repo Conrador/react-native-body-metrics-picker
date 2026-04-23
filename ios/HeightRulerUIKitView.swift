@@ -1,10 +1,5 @@
 import UIKit
 
-/// Bump when changing native iOS ruler code — shown under the ruler in **Debug** builds.
-private enum HeightRulerNativeBuildStamp {
-  static let value = "ios-ruler-2026-04-23-uikit-cv"
-}
-
 // MARK: - Glass overlay (UIKit)
 
 private final class RulerGlassUIKitView: UIView {
@@ -207,10 +202,12 @@ private final class HeightRulerTickRowView: UIView {
       return 1 - ((dist - fadeStart) / (fadeEnd - fadeStart))
     }()
     let showGlassLabelText = dist <= 1.8
+    let waveSigma: CGFloat = 0.82
     let wave: CGFloat = {
       guard dist <= 1.8 else { return 0 }
-      return CGFloat(exp(-pow(Double(dist / 0.9), 2)))
+      return CGFloat(exp(-pow(Double(dist / waveSigma), 2)))
     }()
+    let waveStrength: CGFloat = 1.32
 
     // Under the glass: if the snapped center is not a grid major, borrow “major” styling for it
     // and shrink an adjacent grid-major neighbor to a normal tick (e.g. 160, 161, 162 → 161 is long).
@@ -298,10 +295,11 @@ private final class HeightRulerTickRowView: UIView {
     let centerBlend = min(1, centerGlow * 0.96)
     let labelNeighborGlow = CGFloat(exp(-pow(Double((dist - 1.0) / 0.5), 2)))
     let labelCenterGlow = CGFloat(exp(-pow(Double(dist / 0.5), 2)))
-    // Glass emphasis: subtle scale bump (~1.12 max at center).
-    let labelScaleRaw = max(0.96, 1 + (0.12 * labelCenterGlow) - (0.04 * labelNeighborGlow))
+    // Glass emphasis: stronger center bump; neighbors get a light scale lift.
+    let labelScaleRaw = max(0.96, 1 + (0.14 * labelCenterGlow) - (0.035 * labelNeighborGlow))
     let labelOpacityRaw = max(0.72, 1 - (0.28 * labelNeighborGlow))
-    let labelScale = 1 + ((labelScaleRaw - 1) * glassLabelPresence)
+    let neighborLabelScaleBoost = 1 + (0.042 * labelNeighborGlow * glassLabelPresence)
+    let labelScale = (1 + ((labelScaleRaw - 1) * glassLabelPresence)) * neighborLabelScaleBoost
     let labelOpacity = isAlwaysLabel
       ? 1 + ((labelOpacityRaw - 1) * glassLabelPresence)
       : labelOpacityRaw * glassLabelPresence
@@ -329,7 +327,7 @@ private final class HeightRulerTickRowView: UIView {
     didApplyBarWidthOnce = true
     if shouldAnimateBarWidth {
       UIView.animate(
-        withDuration: 0.28,
+        withDuration: 0.68,
         delay: 0,
         options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseOut]
       ) {
@@ -343,11 +341,12 @@ private final class HeightRulerTickRowView: UIView {
     labelWidthConstraint.constant = labelColumnWidth
     barLeadingGapConstraint.constant = labelToTickGap
 
-    let sx = 1 + (waveXGain * wave)
-    let sy = 1 + (waveYGain * wave)
-    // Nudge the tick bar slightly right under the glass (neighbors stay ~0).
-    let tickSelectionNudgeX: CGFloat = 5.25 * centerGlow
-    let tx = 4.0 * wave + tickSelectionNudgeX
+    let sx = 1 + (waveXGain * wave * waveStrength)
+    let sy = 1 + (waveYGain * wave * waveStrength)
+    // Center tick nudges right most; neighbors under the glass nudge slightly right too (lekko wysunięte).
+    let tickSelectionNudgeX: CGFloat = 5.6 * centerGlow
+    let neighborNudgeX: CGFloat = 2.75 * neighborGlow
+    let tx = 4.35 * wave + tickSelectionNudgeX + neighborNudgeX
     bar.transform = CGAffineTransform(translationX: tx, y: 0).scaledBy(x: sx, y: sy)
   }
 
@@ -436,6 +435,15 @@ private final class HeightRulerTickCell: UICollectionViewCell {
   }
 }
 
+/// Glass chrome is not configurable from JS — only active tick highlight colors are props.
+private enum HeightRulerFixedGlassChrome {
+  static let surface = "rgba(255, 255, 255, 0.22)"
+  static let border = "rgba(60, 60, 67, 0.16)"
+  static let sheen = "rgba(255, 255, 255, 0.32)"
+  static let rim = "rgba(10, 20, 40, 0.07)"
+  static let liquidBorder = "rgba(255, 255, 255, 0.78)"
+}
+
 // MARK: - Main ruler
 
 final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollectionViewDataSource, UIGestureRecognizerDelegate {
@@ -447,9 +455,6 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
   private let chromeView = UIView()
   private let collectionView: UICollectionView
   private let glassView = RulerGlassUIKitView()
-  #if DEBUG
-  private let buildStampLabel = UILabel()
-  #endif
 
   private var heightConstraint: NSLayoutConstraint!
   private var displayedUnit: String = "cm"
@@ -527,20 +532,6 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
       collectionView.trailingAnchor.constraint(equalTo: trailingAnchor),
       collectionView.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
-
-    #if DEBUG
-    buildStampLabel.translatesAutoresizingMaskIntoConstraints = false
-    buildStampLabel.font = .monospacedSystemFont(ofSize: 9, weight: .semibold)
-    buildStampLabel.textColor = .secondaryLabel
-    buildStampLabel.text = "NATIVE \(HeightRulerNativeBuildStamp.value)"
-    buildStampLabel.textAlignment = .center
-    addSubview(buildStampLabel)
-    NSLayoutConstraint.activate([
-      buildStampLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
-      buildStampLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
-      buildStampLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
-    ])
-    #endif
   }
 
   @available(*, unavailable)
@@ -563,8 +554,8 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
 
   func syncWithModel() {
     heightConstraint.constant = CGFloat(model.verticalViewportHeight)
-    backgroundColor = UIColor.rulerParse(model.colorBackground)
-    chromeView.backgroundColor = UIColor.rulerParse(model.colorRulerChrome)
+    backgroundColor = .clear
+    chromeView.backgroundColor = .clear
 
     if isUnitTransitionInFlight {
       updateGlassInteractionVisuals()
@@ -749,11 +740,11 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
     let reduce = UIAccessibility.isReduceTransparencyEnabled
     let motion = collectionView.isDragging || collectionView.isDecelerating || glassPressActive
     glassView.apply(
-      surface: UIColor.rulerParse(model.colorGlassSurface),
-      border: UIColor.rulerParse(model.colorGlassBorder),
-      sheenTop: UIColor.rulerParse(model.colorGlassSheen),
-      rim: UIColor.rulerParse(model.colorGlassRim),
-      liquidBorder: UIColor.rulerParse(model.colorGlassLiquidBorder),
+      surface: UIColor.rulerParse(HeightRulerFixedGlassChrome.surface),
+      border: UIColor.rulerParse(HeightRulerFixedGlassChrome.border),
+      sheenTop: UIColor.rulerParse(HeightRulerFixedGlassChrome.sheen),
+      rim: UIColor.rulerParse(HeightRulerFixedGlassChrome.rim),
+      liquidBorder: UIColor.rulerParse(HeightRulerFixedGlassChrome.liquidBorder),
       reduceTransparency: reduce,
       inMotion: motion
     )

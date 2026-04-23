@@ -39,17 +39,9 @@ HeightRulerViewProps::HeightRulerViewProps(
     fontFamily(convertRawProp(context, rawProps, "fontFamily", sourceProps.fontFamily, {})),
     longStepInterval(convertRawProp(context, rawProps, "longStepInterval", sourceProps.longStepInterval, {0})),
     imperialMinInches(convertRawProp(context, rawProps, "imperialMinInches", sourceProps.imperialMinInches, {0})),
-    colorBackground(convertRawProp(context, rawProps, "colorBackground", sourceProps.colorBackground, {})),
-    colorRulerChrome(convertRawProp(context, rawProps, "colorRulerChrome", sourceProps.colorRulerChrome, {})),
     colorTick(convertRawProp(context, rawProps, "colorTick", sourceProps.colorTick, {})),
     colorMidTick(convertRawProp(context, rawProps, "colorMidTick", sourceProps.colorMidTick, {})),
     colorMajorTick(convertRawProp(context, rawProps, "colorMajorTick", sourceProps.colorMajorTick, {})),
-    colorSelectedTick(convertRawProp(context, rawProps, "colorSelectedTick", sourceProps.colorSelectedTick, {})),
-    colorGlassSurface(convertRawProp(context, rawProps, "colorGlassSurface", sourceProps.colorGlassSurface, {})),
-    colorGlassBorder(convertRawProp(context, rawProps, "colorGlassBorder", sourceProps.colorGlassBorder, {})),
-    colorGlassSheen(convertRawProp(context, rawProps, "colorGlassSheen", sourceProps.colorGlassSheen, {})),
-    colorGlassRim(convertRawProp(context, rawProps, "colorGlassRim", sourceProps.colorGlassRim, {})),
-    colorGlassLiquidBorder(convertRawProp(context, rawProps, "colorGlassLiquidBorder", sourceProps.colorGlassLiquidBorder, {})),
     colorGlassActiveTick(convertRawProp(context, rawProps, "colorGlassActiveTick", sourceProps.colorGlassActiveTick, {})),
     colorGlassActiveNeighborTick(convertRawProp(context, rawProps, "colorGlassActiveNeighborTick", sourceProps.colorGlassActiveNeighborTick, {})),
     colorViewportEdgeFadeTop(convertRawProp(context, rawProps, "colorViewportEdgeFadeTop", sourceProps.colorViewportEdgeFadeTop, {})),
@@ -152,14 +144,6 @@ folly::dynamic HeightRulerViewProps::getDiffProps(
     result["imperialMinInches"] = imperialMinInches;
   }
     
-  if (colorBackground != oldProps->colorBackground) {
-    result["colorBackground"] = colorBackground;
-  }
-    
-  if (colorRulerChrome != oldProps->colorRulerChrome) {
-    result["colorRulerChrome"] = colorRulerChrome;
-  }
-    
   if (colorTick != oldProps->colorTick) {
     result["colorTick"] = colorTick;
   }
@@ -170,30 +154,6 @@ folly::dynamic HeightRulerViewProps::getDiffProps(
     
   if (colorMajorTick != oldProps->colorMajorTick) {
     result["colorMajorTick"] = colorMajorTick;
-  }
-    
-  if (colorSelectedTick != oldProps->colorSelectedTick) {
-    result["colorSelectedTick"] = colorSelectedTick;
-  }
-    
-  if (colorGlassSurface != oldProps->colorGlassSurface) {
-    result["colorGlassSurface"] = colorGlassSurface;
-  }
-    
-  if (colorGlassBorder != oldProps->colorGlassBorder) {
-    result["colorGlassBorder"] = colorGlassBorder;
-  }
-    
-  if (colorGlassSheen != oldProps->colorGlassSheen) {
-    result["colorGlassSheen"] = colorGlassSheen;
-  }
-    
-  if (colorGlassRim != oldProps->colorGlassRim) {
-    result["colorGlassRim"] = colorGlassRim;
-  }
-    
-  if (colorGlassLiquidBorder != oldProps->colorGlassLiquidBorder) {
-    result["colorGlassLiquidBorder"] = colorGlassLiquidBorder;
   }
     
   if (colorGlassActiveTick != oldProps->colorGlassActiveTick) {

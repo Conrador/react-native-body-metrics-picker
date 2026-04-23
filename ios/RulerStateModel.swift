@@ -35,17 +35,9 @@ final class RulerStateModel {
   var longStepInterval: Int = 10
   var imperialMinInches: Int = 39
 
-  var colorBackground: String = "#FFFFFF"
-  var colorRulerChrome: String = "rgba(0, 0, 0, 0)"
   var colorTick: String = "#D1D5DB"
   var colorMidTick: String = "#6B7280"
   var colorMajorTick: String = "#374151"
-  var colorSelectedTick: String = "#D1D5DB"
-  var colorGlassSurface: String = "rgba(255, 255, 255, 0.22)"
-  var colorGlassBorder: String = "rgba(60, 60, 67, 0.16)"
-  var colorGlassSheen: String = "rgba(255, 255, 255, 0.32)"
-  var colorGlassRim: String = "rgba(10, 20, 40, 0.07)"
-  var colorGlassLiquidBorder: String = "rgba(255, 255, 255, 0.78)"
   var colorGlassActiveTick: String = "#FFD60A"
   var colorGlassActiveNeighborTick: String = "rgba(255, 214, 10, 0.72)"
 

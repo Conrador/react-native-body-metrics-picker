@@ -22,6 +22,7 @@ export interface HeightRulerProps {
   onScrollEnd?: () => void;
 
   // Typography
+  /** PostScript / family name on iOS (`UIFont(name:size:)`), Android `Typeface.create`. Bold is applied natively. */
   fontFamily?: string;
   /** Point size for tick labels (major ticks and values under the glass). Default: 19. */
   tickLabelFontSize?: number;
@@ -34,17 +35,10 @@ export interface HeightRulerProps {
   tickWidth?: number;
 
   // Colors
-  backgroundColor?: string;
-  rulerChromeColor?: string;
   tickColor?: string;
   midTickColor?: string;
+  /** Also drives default label ink on the native ruler (with glass / neighbor blending). */
   majorTickColor?: string;
-  selectedTickColor?: string;
-  glassSurfaceColor?: string;
-  glassBorderColor?: string;
-  glassSheenColor?: string;
-  glassRimColor?: string;
-  glassLiquidBorderColor?: string;
   glassActiveTickColor?: string;
   glassActiveNeighborTickColor?: string;
 

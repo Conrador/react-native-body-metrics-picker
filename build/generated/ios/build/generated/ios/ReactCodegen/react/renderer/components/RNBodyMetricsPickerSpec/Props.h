@@ -42,17 +42,9 @@ class HeightRulerViewProps final : public ViewProps {
   std::string fontFamily{};
   int longStepInterval{0};
   int imperialMinInches{0};
-  std::string colorBackground{};
-  std::string colorRulerChrome{};
   std::string colorTick{};
   std::string colorMidTick{};
   std::string colorMajorTick{};
-  std::string colorSelectedTick{};
-  std::string colorGlassSurface{};
-  std::string colorGlassBorder{};
-  std::string colorGlassSheen{};
-  std::string colorGlassRim{};
-  std::string colorGlassLiquidBorder{};
   std::string colorGlassActiveTick{};
   std::string colorGlassActiveNeighborTick{};
   std::string colorViewportEdgeFadeTop{};
