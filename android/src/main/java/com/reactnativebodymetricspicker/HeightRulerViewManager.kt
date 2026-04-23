@@ -20,30 +20,36 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
 
   @ReactProp(name = "unit")
   fun setUnit(view: HeightRulerView, unit: String?) {
-    view.setUnitAndPreserveCenteredValue(unit ?: "cm")
+    val u = unit ?: "cm"
+    if (view.unit == u) {
+      HeightRulerNativeBounds.applyForUnit(view, u)
+      view.markNeedsReload()
+      return
+    }
+    view.setUnitAndPreserveCenteredValue(u)
   }
 
   @ReactProp(name = "rangeMin")
-  fun setRangeMin(view: HeightRulerView, v: Double) {
-    view.rangeMin = v
+  fun setRangeMin(view: HeightRulerView, @Suppress("UNUSED_PARAMETER") v: Double) {
+    HeightRulerNativeBounds.applyForUnit(view, view.unit)
     view.markNeedsReload()
   }
 
   @ReactProp(name = "rangeMax")
-  fun setRangeMax(view: HeightRulerView, v: Double) {
-    view.rangeMax = v
+  fun setRangeMax(view: HeightRulerView, @Suppress("UNUSED_PARAMETER") v: Double) {
+    HeightRulerNativeBounds.applyForUnit(view, view.unit)
     view.markNeedsReload()
   }
 
   @ReactProp(name = "step")
-  fun setStep(view: HeightRulerView, v: Double) {
-    view.step = v
+  fun setStep(view: HeightRulerView, @Suppress("UNUSED_PARAMETER") v: Double) {
+    HeightRulerNativeBounds.applyForUnit(view, view.unit)
     view.markNeedsReload()
   }
 
   @ReactProp(name = "fractionDigits", defaultInt = 0)
-  fun setFractionDigits(view: HeightRulerView, v: Int) {
-    view.fractionDigits = v
+  fun setFractionDigits(view: HeightRulerView, @Suppress("UNUSED_PARAMETER") v: Int) {
+    HeightRulerNativeBounds.applyForUnit(view, view.unit)
     view.markNeedsReload()
   }
 
@@ -115,7 +121,7 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
 
   @ReactProp(name = "tickLabelFontSize")
   fun setTickLabelFontSize(view: HeightRulerView, v: Double) {
-    view.tickLabelFontSize = if (v > 0) v else 24.0
+    view.tickLabelFontSize = if (v > 0) v else 19.0
     view.markNeedsReload()
   }
 
@@ -131,9 +137,9 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
     view.markNeedsReload()
   }
 
-  @ReactProp(name = "imperialMinInches", defaultInt = 12)
-  fun setImperialMinInches(view: HeightRulerView, v: Int) {
-    view.imperialMinInches = v
+  @ReactProp(name = "imperialMinInches", defaultInt = 39)
+  fun setImperialMinInches(view: HeightRulerView, @Suppress("UNUSED_PARAMETER") v: Int) {
+    HeightRulerNativeBounds.applyForUnit(view, view.unit)
     view.markNeedsReload()
   }
 

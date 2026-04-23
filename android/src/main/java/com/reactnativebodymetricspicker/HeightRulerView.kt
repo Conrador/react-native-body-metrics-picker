@@ -1,13 +1,19 @@
 package com.reactnativebodymetricspicker
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
+import android.os.Build
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -21,6 +27,8 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.round
+import java.util.IdentityHashMap
+import java.util.Locale
 
 private enum class TickKind { MAJOR, LARGE, MEDIUM, SMALL }
 
@@ -86,7 +94,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   private val tickLabels = mutableListOf<TextView>()
 
   var unit: String = "cm"
-  var rangeMin = 50.0
+  var rangeMin = 100.0
   var rangeMax = 250.0
   var step = 1.0
   var fractionDigits = 0
@@ -99,12 +107,12 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   var majorTickHeight = 40.0
   var tickWidth = 1.5
   var labelColumnWidth = 52.0
-  var labelToTickGap = 4.0
+  var labelToTickGap = 5.0
   var tickCellPaddingRight = 6.0
-  var tickLabelFontSize = 24.0
+  var tickLabelFontSize = 19.0
   var fontFamily: String? = null
   var longStepInterval = 10
-  var imperialMinInches = 12
+  var imperialMinInches = 39
 
   var colorBackground = "#FFFFFF"
   var colorRulerChrome = "rgba(0, 0, 0, 0)"
@@ -130,6 +138,14 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   private var needsReload = true
   private var glassInMotion = false
   private var glassPressActive = false
+  private var lastMajorHapticScrollIndex: Int? = null
+  private var suppressMajorTickHaptic = false
+  private var lastEmittedValue: String? = null
+
+  private val tickBarWidthAnimators = IdentityHashMap<View, ValueAnimator>()
+  private val tickBarWidthTargetPx = IdentityHashMap<View, Int>()
+  private val tickBarWidthEase =
+    PathInterpolator(0.33f, 1f, 0.68f, 1f)
 
   init {
     scrollView.isFillViewport = true
@@ -219,6 +235,8 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   }
 
   private fun emitValue(value: String) {
+    if (value == lastEmittedValue) return
+    lastEmittedValue = value
     emit("topValueChange", Arguments.createMap().apply { putString("value", value) })
   }
 
@@ -234,18 +252,25 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   fun setUnitAndPreserveCenteredValue(newUnit: String) {
     if (unit == newUnit) return
     val oldUnit = unit
-    val currentValue =
-      if (centerIndex >= 0) {
-        valueForIndex(centerIndex.coerceIn(0, totalSteps.coerceAtLeast(0)), oldUnit)
+    val heightCm =
+      if (centerIndex >= 0 && totalSteps >= 0) {
+        val idx = centerIndex.coerceIn(0, totalSteps)
+        if (unit == "ft") {
+          // Inch ticks map to fractional cm; JS `initialValue` keeps cm-grid intent for ft→cm.
+          initialValue
+        } else {
+          heightCmForIndex(idx)
+        }
       } else {
         initialValue
       }
-    pendingInitialValueOverride = convertUnitValue(currentValue, oldUnit, newUnit)
+    pendingInitialValueOverride = heightCm
     scrollView.stopNestedScroll()
     setGlassInMotion(false)
     glassPressActive = false
     applyGlassVisualState()
     unit = newUnit
+    HeightRulerNativeBounds.applyForUnit(this, newUnit)
     animateRulerUnitChange()
     markNeedsReload()
   }
@@ -280,9 +305,14 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
 
   private fun valueToIndex(v: Double): Int {
     return if (unit == "ft") {
-      imperialMaxInches() - round(v * 12.0).toInt()
+      val hi = imperialMaxInches()
+      val lo = imperialMinInchesRounded()
+      var ti = round(v * 12.0).toInt()
+      ti = ti.coerceIn(lo, hi)
+      (hi - ti).coerceIn(0, totalSteps)
     } else {
-      round((rangeMax - v) / step).toInt()
+      val idx = round((rangeMax - v) / step).toInt()
+      idx.coerceIn(0, totalSteps)
     }
   }
 
@@ -295,26 +325,31 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     }
   }
 
-  private fun convertUnitValue(value: Double, fromUnit: String, toUnit: String): Double {
-    if (fromUnit == toUnit) return value
-    return if (fromUnit == "cm" && toUnit == "ft") {
-      value / 30.48
-    } else if (fromUnit == "ft" && toUnit == "cm") {
-      value * 30.48
+  private fun heightCmForIndex(idx: Int): Double {
+    return if (unit == "ft") {
+      val inches = imperialMaxInches() - idx
+      inches * 30.48 / 12.0
     } else {
-      value
+      rangeMax - idx * step
+    }
+  }
+
+  /** `initialValue` from JS is always cm. */
+  private fun valueToIndexFromCm(cm: Double): Int {
+    return if (unit == "ft") {
+      val hi = imperialMaxInches()
+      val lo = imperialMinInchesRounded()
+      var ti = round(cm * 12.0 / 30.48).toInt()
+      ti = ti.coerceIn(lo, hi)
+      (hi - ti).coerceIn(0, totalSteps)
+    } else {
+      valueToIndex(round(cm))
     }
   }
 
   private fun emitStringForIndex(idx: Int): String {
-    return if (unit == "ft") {
-      val inches = imperialMaxInches() - idx
-      val ft = inches / 12.0
-      String.format("%.4f", ft)
-    } else {
-      val value = rangeMax - idx * step
-      String.format("%.${fractionDigits}f", value)
-    }
+    val cm = heightCmForIndex(idx)
+    return String.format(Locale.US, "%.2f", cm)
   }
 
   private fun formatImperialLabel(totalInches: Int): String {
@@ -323,7 +358,12 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     return "$feet′$inches″"
   }
 
-  private fun imperialMaxInches(): Int = round(rangeMax * 12.0).toInt()
+  /** Match [CM_MIN, CM_MAX] in cm — do not use `rangeMax*12` (float ft props can skew `totalSteps` and scroll). */
+  private fun imperialMaxInches(): Int =
+    round(HeightRulerNativeBounds.CM_MAX / HeightRulerNativeBounds.CM_PER_FOOT * 12.0).toInt()
+
+  private fun imperialMinInchesRounded(): Int =
+    round(HeightRulerNativeBounds.CM_MIN / HeightRulerNativeBounds.CM_PER_FOOT * 12.0).toInt()
 
   private fun metricLabel(idx: Int, tickVal: Double): String {
     if (idx % longStepInterval != 0) return ""
@@ -343,13 +383,20 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   }
 
   private fun rebuild() {
+    cancelAllTickBarWidthAnimations()
+    lastEmittedValue = null
     tickBars.clear()
     tickLabels.clear()
     contentColumn.removeAllViews()
     val viewportPx = if (verticalViewportHeight > 0) dp(verticalViewportHeight) else height.toFloat()
     itemSizePx = dp(tickSpacing).toInt().coerceAtLeast(1)
     endPaddingPx = max(0, ((viewportPx - itemSizePx) / 2f).toInt())
-    totalSteps = round((rangeMax - rangeMin) / step).toInt().coerceAtLeast(0)
+    totalSteps =
+      if (unit == "ft") {
+        max(0, imperialMaxInches() - imperialMinInchesRounded())
+      } else {
+        round((rangeMax - rangeMin) / step).toInt().coerceAtLeast(0)
+      }
 
     setBackgroundColor(parseColor(colorBackground))
     chromeBg.setBackgroundColor(parseColor(colorRulerChrome))
@@ -434,16 +481,28 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     val contentH = (totalSteps + 1) * itemSizePx + contentColumn.paddingTop + contentColumn.paddingBottom
     contentColumn.layoutParams = FrameLayout.LayoutParams(rowW, contentH)
 
-    val startValue = pendingInitialValueOverride ?: initialValue
+    val preservedStartCm = pendingInitialValueOverride ?: initialValue
     pendingInitialValueOverride = null
-    val startIdx = valueToIndex(startValue).coerceIn(0, totalSteps)
+    val startIdx = valueToIndexFromCm(preservedStartCm).coerceIn(0, totalSteps)
     centerIndex = startIdx
     centerPosition = startIdx.toFloat()
     val y = startIdx * itemSizePx
     scrollView.post {
+      suppressMajorTickHaptic = true
       scrollView.scrollTo(0, y)
-      updateTickColors()
-      emitValue(emitStringForIndex(startIdx))
+      updateTickColors(animateTickWidths = false)
+      val emitCm =
+        if (unit == "ft") {
+          preservedStartCm
+        } else {
+          heightCmForIndex(startIdx)
+        }
+      emitValue(String.format(Locale.US, "%.2f", emitCm))
+      if (unit == "ft") {
+        initialValue = preservedStartCm
+      }
+      lastMajorHapticScrollIndex = indexForOffset(scrollView.scrollY)
+      suppressMajorTickHaptic = false
     }
   }
 
@@ -481,22 +540,113 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     return idx
   }
 
-  private fun updateTickColors() {
+  private fun cancelAllTickBarWidthAnimations() {
+    for (anim in tickBarWidthAnimators.values) {
+      anim.cancel()
+    }
+    tickBarWidthAnimators.clear()
+    tickBarWidthTargetPx.clear()
+  }
+
+  /**
+   * Smoothly resizes tick bars when glass promote/demote changes major width; avoids restarting
+   * anim every scroll frame when target is unchanged.
+   */
+  private fun setTickBarToWidthPx(bar: View, targetPx: Int, animated: Boolean): Boolean {
+    val lp = bar.layoutParams as LinearLayout.LayoutParams
+    if (!animated) {
+      tickBarWidthAnimators.remove(bar)?.cancel()
+      tickBarWidthTargetPx[bar] = targetPx
+      if (lp.width == targetPx) return false
+      lp.width = targetPx
+      return true
+    }
+
+    val running = tickBarWidthAnimators[bar]
+    if (running != null && tickBarWidthTargetPx[bar] == targetPx) {
+      return false
+    }
+
+    if (lp.width == targetPx) {
+      tickBarWidthAnimators.remove(bar)?.cancel()
+      tickBarWidthTargetPx[bar] = targetPx
+      return false
+    }
+
+    tickBarWidthAnimators.remove(bar)?.cancel()
+    tickBarWidthTargetPx[bar] = targetPx
+    val startPx = lp.width
+    val anim =
+      ValueAnimator.ofInt(startPx, targetPx).apply {
+        duration = 265L
+        interpolator = tickBarWidthEase
+        addUpdateListener { va ->
+          lp.width = va.animatedValue as Int
+          bar.parent?.requestLayout()
+        }
+      }
+    tickBarWidthAnimators[bar] = anim
+    anim.addListener(
+      object : AnimatorListenerAdapter() {
+        override fun onAnimationEnd(animation: Animator) {
+          if (tickBarWidthAnimators[bar] === anim) {
+            tickBarWidthAnimators.remove(bar)
+          }
+          lp.width = targetPx
+          bar.parent?.requestLayout()
+        }
+
+        override fun onAnimationCancel(animation: Animator) {
+          if (tickBarWidthAnimators[bar] === anim) {
+            tickBarWidthAnimators.remove(bar)
+          }
+        }
+      }
+    )
+    anim.start()
+    return false
+  }
+
+  private fun updateTickColors(animateTickWidths: Boolean = true) {
     val cTick = parseColor(colorTick)
     val cMid = parseColor(colorMidTick)
     val cMajor = parseColor(colorMajorTick)
     val cActive = parseColor(colorGlassActiveTick)
     val cActiveNeighbor = parseColor(colorGlassActiveNeighborTick)
 
+    val majorH = dp(majorTickHeight)
+    val midH = dp(midTickHeight)
+    val minorH = dp(minorTickHeight)
+
+    val selectedIdx = round(centerPosition.toDouble()).toInt().coerceIn(0, totalSteps)
+    val centerIsGridMajor = isMajorTickIndex(selectedIdx)
+
+    var needSyncLayout = false
+
     for (i in 0..totalSteps) {
       val bar = tickBars.getOrNull(i) ?: continue
+
+      val promoteGlassMajor = !centerIsGridMajor && i == selectedIdx
+      val demoteAdjacentGridMajor =
+        !centerIsGridMajor && kotlin.math.abs(i - selectedIdx) == 1 && isMajorTickIndex(i)
+
       val baseColor: Int
       val gainX: Float
       val gainY: Float
       val always: Boolean
+      val barW: Float
+
       if (unit == "ft") {
         val ti = imperialMaxInches() - i
-        when (tickKindImperial(ti)) {
+        var effKind = tickKindImperial(ti)
+        if (demoteAdjacentGridMajor) {
+          effKind = TickKind.SMALL
+        }
+        if (promoteGlassMajor) {
+          effKind = TickKind.MAJOR
+        }
+        barW = barWidth(effKind, majorH, midH, minorH)
+        when (effKind) {
           TickKind.MAJOR -> {
             baseColor = cMajor
             gainX = 0.24f
@@ -518,9 +668,22 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
         }
       } else {
         val indexFromMin = totalSteps - i
-        val isLong = indexFromMin % longStepInterval == 0
+        var isLong = indexFromMin % longStepInterval == 0
         val half = max(1, longStepInterval / 2)
-        val isMid = !isLong && indexFromMin % half == 0
+        var isMid = !isLong && indexFromMin % half == 0
+        if (demoteAdjacentGridMajor) {
+          isLong = false
+          isMid = false
+        }
+        if (promoteGlassMajor) {
+          isLong = true
+          isMid = false
+        }
+        barW = when {
+          isLong -> majorH
+          isMid -> midH
+          else -> minorH
+        }
         when {
           isLong -> {
             baseColor = cMajor
@@ -542,6 +705,12 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
           }
         }
       }
+
+      val newBarW = barW.toInt()
+      if (setTickBarToWidthPx(bar, newBarW, animateTickWidths)) {
+        needSyncLayout = true
+      }
+
       val dist = abs(i.toFloat() - centerPosition)
       val glassLabelPresence = when {
         dist <= 1f -> 1f
@@ -562,14 +731,21 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
       bar.pivotX = 0f
       bar.scaleX = 1f + (gainX * wave)
       bar.scaleY = 1f + (gainY * wave)
-      bar.translationX = dp(3.2).toFloat() * wave
+      // Slight extra shift right for the tick under the glass (matches iOS `tickSelectionNudgeX`).
+      bar.translationX = dp(4.0).toFloat() * wave + dp(5.25).toFloat() * centerGlow
 
       val label = tickLabels.getOrNull(i)
       if (label != null) {
         if (unit == "ft") {
           val ti = imperialMaxInches() - i
-          val kind = tickKindImperial(ti)
-          label.text = if (showGlassLabelText || kind == TickKind.MAJOR) formatImperialLabel(ti) else ""
+          var ek = tickKindImperial(ti)
+          if (demoteAdjacentGridMajor) {
+            ek = TickKind.SMALL
+          }
+          if (promoteGlassMajor) {
+            ek = TickKind.MAJOR
+          }
+          label.text = if (showGlassLabelText || ek == TickKind.MAJOR) formatImperialLabel(ti) else ""
         } else {
           val tickVal = rangeMax - i * step
           label.text = if (showGlassLabelText) glassMetricLabel(tickVal) else metricLabel(i, tickVal)
@@ -577,7 +753,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
         val labelCenterGlow = kotlin.math.exp(-kotlin.math.pow((dist / 0.5f).toDouble(), 2.0)).toFloat()
         val labelNeighborGlow =
           kotlin.math.exp(-kotlin.math.pow(((dist - 1f) / 0.5f).toDouble(), 2.0)).toFloat()
-        val labelScaleRaw = max(0.96f, 1f + (0.34f * labelCenterGlow) - (0.04f * labelNeighborGlow))
+        val labelScaleRaw = max(0.96f, 1f + (0.12f * labelCenterGlow) - (0.04f * labelNeighborGlow))
         val labelScale = 1f + ((labelScaleRaw - 1f) * glassLabelPresence)
         val labelAlphaRaw = max(0.72f, 1f - (0.28f * labelNeighborGlow))
         val labelAlpha = if (always) {
@@ -587,13 +763,55 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
         }
         val labelColor = ColorUtils.blendARGB(cMajor, cMid, min(1f, labelNeighborGlow * 0.82f))
         label.setTextColor(labelColor)
-        label.pivotX = label.width.toFloat()
+        val pivotInset = dp(4.0)
+        label.pivotX = max(1f, label.width - pivotInset)
         label.pivotY = label.height * 0.5f
         label.scaleX = labelScale
         label.scaleY = labelScale
         label.alpha = if (always) labelAlpha else if (showGlassLabelText) labelAlpha else 1f
       }
     }
+
+    if (needSyncLayout) {
+      contentColumn.requestLayout()
+    }
+  }
+
+  private fun isMajorTickIndex(i: Int): Boolean {
+    if (i < 0 || i > totalSteps) return false
+    if (unit == "ft") {
+      val ti = imperialMaxInches() - i
+      return ti % 12 == 0
+    }
+    val indexFromMin = totalSteps - i
+    return indexFromMin % longStepInterval == 0
+  }
+
+  /** Major + mid (“half”) grid — e.g. cm every 10 and every 5; ft every 6″ (half-foot), includes whole feet. */
+  private fun isHalfGridTickIndex(i: Int): Boolean {
+    if (i < 0 || i > totalSteps) return false
+    if (unit == "ft") {
+      val ti = imperialMaxInches() - i
+      return ti % 6 == 0
+    }
+    val indexFromMin = totalSteps - i
+    val half = max(1, longStepInterval / 2)
+    return indexFromMin % half == 0
+  }
+
+  private fun maybeMajorTickHaptic(newIdx: Int) {
+    if (newIdx == lastMajorHapticScrollIndex) return
+    val hadPrior = lastMajorHapticScrollIndex != null
+    lastMajorHapticScrollIndex = newIdx
+    if (!hadPrior || suppressMajorTickHaptic || !isHalfGridTickIndex(newIdx)) return
+    val isMajor = isMajorTickIndex(newIdx)
+    val haptic =
+      if (isMajor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        HapticFeedbackConstants.CLOCK_TICK
+      } else {
+        HapticFeedbackConstants.KEYBOARD_TAP
+      }
+    scrollView.performHapticFeedback(haptic)
   }
 
   private fun onScrollChanged(scrollY: Int) {
@@ -601,6 +819,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     centerPosition = scrollY.toFloat() / itemSizePx.toFloat()
     val idx = indexForOffset(scrollY)
     if (idx != centerIndex) {
+      maybeMajorTickHaptic(idx)
       centerIndex = idx
       updateTickColors()
     } else {
@@ -619,11 +838,14 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     val child = scrollView.getChildAt(0) ?: return
     val maxY = max(0, child.height - scrollView.height)
     y = snap.coerceIn(0, maxY)
+    suppressMajorTickHaptic = true
     if (abs(scrollView.scrollY - y) > 1) {
       scrollView.scrollTo(0, y)
     }
     centerPosition = y.toFloat() / itemSizePx.toFloat()
     centerIndex = indexForOffset(y)
+    lastMajorHapticScrollIndex = centerIndex
+    suppressMajorTickHaptic = false
     updateTickColors()
     emitValue(emitStringForIndex(centerIndex))
     emitEmpty("topScrollEnd")

@@ -1,14 +1,14 @@
-import SwiftUI
 import UIKit
 
 public typealias RNBMOnValueChangeBlock = @convention(block) (NSString) -> Void
 public typealias RNBMVoidBlock = @convention(block) () -> Void
 
-/// Hosts SwiftUI ruler; events go to Fabric (`RCTHeightRulerView` → `HeightRulerViewEventEmitter`).
+/// Pure UIKit height ruler; events go to Fabric (`RCTHeightRulerView` → `HeightRulerViewEventEmitter`).
 @objc(RNHeightRulerHostingView)
 public final class RNHeightRulerHostingView: UIView {
   private let model = RulerStateModel()
-  private var hostingController: UIHostingController<HeightRulerSwiftUIView>?
+  private var rulerView: HeightRulerUIKitView!
+  private var rulerSyncScheduled = false
 
   @objc public var onValueChange: RNBMOnValueChangeBlock?
   @objc public var onScrollBegin: RNBMVoidBlock?
@@ -18,7 +18,7 @@ public final class RNHeightRulerHostingView: UIView {
     super.init(frame: frame)
     backgroundColor = .clear
 
-    let root = HeightRulerSwiftUIView(
+    rulerView = HeightRulerUIKitView(
       model: model,
       onValueEmit: { [weak self] value in
         self?.onValueChange?(value as NSString)
@@ -31,17 +31,13 @@ public final class RNHeightRulerHostingView: UIView {
       }
     )
 
-    let hc = UIHostingController(rootView: root)
-    hostingController = hc
-    hc.view.backgroundColor = .clear
-    hc.view.isOpaque = false
-    addSubview(hc.view)
-    hc.view.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(rulerView)
+    rulerView.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
-      hc.view.topAnchor.constraint(equalTo: topAnchor),
-      hc.view.leadingAnchor.constraint(equalTo: leadingAnchor),
-      hc.view.trailingAnchor.constraint(equalTo: trailingAnchor),
-      hc.view.bottomAnchor.constraint(equalTo: bottomAnchor),
+      rulerView.topAnchor.constraint(equalTo: topAnchor),
+      rulerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      rulerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+      rulerView.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
   }
 
@@ -50,33 +46,59 @@ public final class RNHeightRulerHostingView: UIView {
     fatalError("init(coder:) has not been implemented")
   }
 
+  public override func didMoveToWindow() {
+    super.didMoveToWindow()
+    if window != nil {
+      scheduleRulerSync()
+    }
+  }
+
+  private func scheduleRulerSync() {
+    guard !rulerSyncScheduled else { return }
+    rulerSyncScheduled = true
+    DispatchQueue.main.async { [weak self] in
+      guard let self else { return }
+      self.rulerSyncScheduled = false
+      self.rulerView.syncWithModel()
+    }
+  }
+
   @objc public var unit: String = "cm" {
     didSet {
       if oldValue != unit {
         model.prepareUnitTransition(from: oldValue, to: unit)
       }
       model.unit = unit
+      scheduleRulerSync()
     }
   }
 
-  @objc public var rangeMin: Double = 50 {
-    didSet { model.rangeMin = rangeMin }
+  @objc public var rangeMin: Double = 100 {
+    didSet {
+      model.rangeMin = rangeMin
+      scheduleRulerSync()
+    }
   }
 
   @objc public var rangeMax: Double = 250 {
     didSet {
       model.rangeMax = rangeMax
+      scheduleRulerSync()
     }
   }
 
   @objc public var step: Double = 1 {
     didSet {
       model.step = step
+      scheduleRulerSync()
     }
   }
 
   @objc public var fractionDigits: Int = 0 {
-    didSet { model.fractionDigits = fractionDigits }
+    didSet {
+      model.fractionDigits = fractionDigits
+      scheduleRulerSync()
+    }
   }
 
   @objc public var initialValue: Double = 175 {
@@ -85,114 +107,196 @@ public final class RNHeightRulerHostingView: UIView {
         return
       }
       model.initialValue = initialValue
+      scheduleRulerSync()
     }
   }
 
   @objc public var verticalViewportHeight: Double = 240 {
-    didSet { model.verticalViewportHeight = verticalViewportHeight }
+    didSet {
+      model.verticalViewportHeight = verticalViewportHeight
+      scheduleRulerSync()
+    }
   }
 
   @objc public var rulerTrackWidth: Double = 120 {
-    didSet { model.rulerTrackWidth = rulerTrackWidth }
+    didSet {
+      model.rulerTrackWidth = rulerTrackWidth
+      scheduleRulerSync()
+    }
   }
 
   @objc public var tickSpacing: Double = 15 {
-    didSet { model.tickSpacing = tickSpacing }
+    didSet {
+      model.tickSpacing = tickSpacing
+      scheduleRulerSync()
+    }
   }
 
   @objc public var minorTickHeight: Double = 18 {
-    didSet { model.minorTickHeight = minorTickHeight }
+    didSet {
+      model.minorTickHeight = minorTickHeight
+      scheduleRulerSync()
+    }
   }
 
   @objc public var midTickHeight: Double = 28 {
-    didSet { model.midTickHeight = midTickHeight }
+    didSet {
+      model.midTickHeight = midTickHeight
+      scheduleRulerSync()
+    }
   }
 
   @objc public var majorTickHeight: Double = 40 {
-    didSet { model.majorTickHeight = majorTickHeight }
+    didSet {
+      model.majorTickHeight = majorTickHeight
+      scheduleRulerSync()
+    }
   }
 
   @objc public var tickWidth: Double = 1.5 {
-    didSet { model.tickWidth = tickWidth }
+    didSet {
+      model.tickWidth = tickWidth
+      scheduleRulerSync()
+    }
   }
 
   @objc public var labelColumnWidth: Double = 52 {
-    didSet { model.labelColumnWidth = labelColumnWidth }
+    didSet {
+      model.labelColumnWidth = labelColumnWidth
+      scheduleRulerSync()
+    }
   }
 
-  @objc public var labelToTickGap: Double = 4 {
-    didSet { model.labelToTickGap = labelToTickGap }
+  @objc public var labelToTickGap: Double = 5 {
+    didSet {
+      model.labelToTickGap = labelToTickGap
+      scheduleRulerSync()
+    }
   }
 
   @objc public var tickCellPaddingRight: Double = 6 {
-    didSet { model.tickCellPaddingRight = tickCellPaddingRight }
+    didSet {
+      model.tickCellPaddingRight = tickCellPaddingRight
+      scheduleRulerSync()
+    }
   }
 
-  @objc public var tickLabelFontSize: Double = 24 {
-    didSet { model.tickLabelFontSize = tickLabelFontSize }
+  @objc public var tickLabelFontSize: Double = 19 {
+    didSet {
+      model.tickLabelFontSize = tickLabelFontSize
+      scheduleRulerSync()
+    }
   }
 
   @objc public var fontFamily: NSString? {
-    didSet { model.fontFamily = fontFamily as String? }
+    didSet {
+      model.fontFamily = fontFamily as String?
+      scheduleRulerSync()
+    }
   }
 
   @objc public var longStepInterval: Int = 10 {
-    didSet { model.longStepInterval = longStepInterval }
+    didSet {
+      model.longStepInterval = longStepInterval
+      scheduleRulerSync()
+    }
   }
 
-  @objc public var imperialMinInches: Int = 12 {
-    didSet { model.imperialMinInches = imperialMinInches }
+  @objc public var imperialMinInches: Int = 39 {
+    didSet {
+      model.imperialMinInches = imperialMinInches
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorBackground: String = "#FFFFFF" {
-    didSet { model.colorBackground = colorBackground }
+    didSet {
+      model.colorBackground = colorBackground
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorRulerChrome: String = "rgba(0, 0, 0, 0)" {
-    didSet { model.colorRulerChrome = colorRulerChrome }
+    didSet {
+      model.colorRulerChrome = colorRulerChrome
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorTick: String = "#D1D5DB" {
-    didSet { model.colorTick = colorTick }
+    didSet {
+      model.colorTick = colorTick
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorMidTick: String = "#6B7280" {
-    didSet { model.colorMidTick = colorMidTick }
+    didSet {
+      model.colorMidTick = colorMidTick
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorMajorTick: String = "#374151" {
-    didSet { model.colorMajorTick = colorMajorTick }
+    didSet {
+      model.colorMajorTick = colorMajorTick
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorSelectedTick: String = "#D1D5DB" {
-    didSet { model.colorSelectedTick = colorSelectedTick }
+    didSet {
+      model.colorSelectedTick = colorSelectedTick
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorGlassSurface: String = "rgba(255, 255, 255, 0.22)" {
-    didSet { model.colorGlassSurface = colorGlassSurface }
+    didSet {
+      model.colorGlassSurface = colorGlassSurface
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorGlassBorder: String = "rgba(60, 60, 67, 0.16)" {
-    didSet { model.colorGlassBorder = colorGlassBorder }
+    didSet {
+      model.colorGlassBorder = colorGlassBorder
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorGlassSheen: String = "rgba(255, 255, 255, 0.32)" {
-    didSet { model.colorGlassSheen = colorGlassSheen }
+    didSet {
+      model.colorGlassSheen = colorGlassSheen
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorGlassRim: String = "rgba(10, 20, 40, 0.07)" {
-    didSet { model.colorGlassRim = colorGlassRim }
+    didSet {
+      model.colorGlassRim = colorGlassRim
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorGlassLiquidBorder: String = "rgba(255, 255, 255, 0.78)" {
-    didSet { model.colorGlassLiquidBorder = colorGlassLiquidBorder }
+    didSet {
+      model.colorGlassLiquidBorder = colorGlassLiquidBorder
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorGlassActiveTick: String = "#FFD60A" {
-    didSet { model.colorGlassActiveTick = colorGlassActiveTick }
+    didSet {
+      model.colorGlassActiveTick = colorGlassActiveTick
+      scheduleRulerSync()
+    }
   }
 
   @objc public var colorGlassActiveNeighborTick: String = "rgba(255, 214, 10, 0.72)" {
-    didSet { model.colorGlassActiveNeighborTick = colorGlassActiveNeighborTick }
+    didSet {
+      model.colorGlassActiveNeighborTick = colorGlassActiveNeighborTick
+      scheduleRulerSync()
+    }
   }
 }

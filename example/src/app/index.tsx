@@ -11,24 +11,28 @@ import {
 
 const DARK_CARD_BACKGROUND = '#0F172A';
 
-function formatFeetInches(feetValue: string): string {
-  const numeric = Number(feetValue);
-  if (Number.isNaN(numeric)) return '--';
-  const totalInches = Math.round(numeric * 12);
+const CM_PER_FOOT = 30.48;
+
+/** Ruler `value` is always cm; format as ft/in for display when UI is in ft mode. */
+function formatFeetInchesFromCm(cmValue: string): string {
+  const cm = Number(cmValue);
+  if (Number.isNaN(cm)) return '--';
+  const feetFloat = cm / CM_PER_FOOT;
+  const totalInches = Math.round(feetFloat * 12);
   const feet = Math.floor(totalInches / 12);
   const inches = totalInches % 12;
   return `${feet}'${inches}"`;
 }
 
-function formatFeetDecimal(feetValue: string): string {
-  const numeric = Number(feetValue);
-  if (Number.isNaN(numeric)) return feetValue;
-  return numeric.toFixed(2);
+function formatFeetDecimalFromCm(cmValue: string): string {
+  const cm = Number(cmValue);
+  if (Number.isNaN(cm)) return cmValue;
+  return (cm / CM_PER_FOOT).toFixed(2);
 }
 
 export default function HomeScreen() {
   const [cmOnlyValue, setCmOnlyValue] = useState('175');
-  const [ftOnlyValue, setFtOnlyValue] = useState('5.7415');
+  const [ftOnlyValue, setFtOnlyValue] = useState('175');
   const [switcherValue, setSwitcherValue] = useState('175');
   const [switcherUnit, setSwitcherUnit] = useState<HeightUnit>('cm');
   const [darkSwitcherValue, setDarkSwitcherValue] = useState('178');
@@ -43,6 +47,7 @@ export default function HomeScreen() {
   }, []);
 
   const handleSwitcherRulerChange = useCallback((value: string) => {
+    console.log('HANDLE SWITCHER RULER CHANGE', value);
     setSwitcherValue(value);
   }, []);
 
@@ -57,6 +62,8 @@ export default function HomeScreen() {
   const handleDarkSwitcherUnitChange = useCallback((unit: HeightUnit) => {
     setDarkSwitcherUnit(unit);
   }, []);
+
+  console.log(switcherValue, 'switcherValue');
 
   return (
     <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
@@ -83,7 +90,7 @@ export default function HomeScreen() {
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
                 selectedTickColor="#D1D5DB"
-                tickLabelFontSize={24}
+                tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
                 majorTickHeight={42}
@@ -114,7 +121,7 @@ export default function HomeScreen() {
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
                 selectedTickColor="#D1D5DB"
-                tickLabelFontSize={24}
+                tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
                 majorTickHeight={42}
@@ -127,7 +134,8 @@ export default function HomeScreen() {
           <View style={styles.debugContainer}>
             <Text style={styles.debugLabel}>Value</Text>
             <Text style={styles.debugValue}>
-              {formatFeetInches(ftOnlyValue)} ({formatFeetDecimal(ftOnlyValue)} ft)
+              {formatFeetInchesFromCm(ftOnlyValue)} ({formatFeetDecimalFromCm(ftOnlyValue)} ft) ·{' '}
+              {ftOnlyValue} cm
             </Text>
           </View>
         </View>
@@ -160,7 +168,7 @@ export default function HomeScreen() {
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
                 selectedTickColor="#D1D5DB"
-                tickLabelFontSize={24}
+                tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
                 majorTickHeight={42}
@@ -174,7 +182,7 @@ export default function HomeScreen() {
             <Text style={styles.debugLabel}>Value</Text>
             <Text style={styles.debugValue}>
               {switcherUnit === 'ft'
-                ? `${formatFeetInches(switcherValue)} (${formatFeetDecimal(switcherValue)} ft)`
+                ? `${formatFeetInchesFromCm(switcherValue)} (${formatFeetDecimalFromCm(switcherValue)} ft) · ${switcherValue} cm`
                 : `${switcherValue} cm`}
             </Text>
           </View>
@@ -218,7 +226,7 @@ export default function HomeScreen() {
                 glassLiquidBorderColor="rgba(255,255,255,0.46)"
                 glassActiveTickColor="#60A5FA"
                 glassActiveNeighborTickColor="rgba(96, 165, 250, 0.7)"
-                tickLabelFontSize={24}
+                tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
                 majorTickHeight={42}
@@ -232,7 +240,7 @@ export default function HomeScreen() {
             <Text style={[styles.debugLabel, styles.debugLabelDark]}>Value</Text>
             <Text style={[styles.debugValue, styles.debugValueDark]}>
               {darkSwitcherUnit === 'ft'
-                ? `${formatFeetInches(darkSwitcherValue)} (${formatFeetDecimal(darkSwitcherValue)} ft)`
+                ? `${formatFeetInchesFromCm(darkSwitcherValue)} (${formatFeetDecimalFromCm(darkSwitcherValue)} ft) · ${darkSwitcherValue} cm`
                 : `${darkSwitcherValue} cm`}
             </Text>
           </View>

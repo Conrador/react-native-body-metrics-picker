@@ -1,44 +1,4 @@
-import SwiftUI
 import UIKit
-
-enum RulerColor {
-  static func parse(_ raw: String?) -> Color {
-    guard let s = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else {
-      return .gray
-    }
-    if s.hasPrefix("#") {
-      let hex = String(s.dropFirst())
-      if hex.count == 6, let v = UInt32(hex, radix: 16) {
-        let r = Double((v >> 16) & 0xff) / 255
-        let g = Double((v >> 8) & 0xff) / 255
-        let b = Double(v & 0xff) / 255
-        return Color(red: r, green: g, blue: b)
-      }
-      if hex.count == 8, let v = UInt32(hex, radix: 16) {
-        let r = Double((v >> 24) & 0xff) / 255
-        let g = Double((v >> 16) & 0xff) / 255
-        let b = Double((v >> 8) & 0xff) / 255
-        let a = Double(v & 0xff) / 255
-        return Color(red: r, green: g, blue: b, opacity: a)
-      }
-    }
-    if s.hasPrefix("rgba("), s.hasSuffix(")") {
-      let inner = s.dropFirst(5).dropLast()
-      let parts = inner.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-      guard parts.count >= 4,
-            let rf = Double(parts[0]),
-            let gf = Double(parts[1]),
-            let bf = Double(parts[2]),
-            let af = Double(parts[3]) else { return .gray }
-      let r = rf > 1 ? rf / 255 : rf
-      let g = gf > 1 ? gf / 255 : gf
-      let b = bf > 1 ? bf / 255 : bf
-      let a = af > 1 ? af / 255 : af
-      return Color(red: r, green: g, blue: b, opacity: a)
-    }
-    return .gray
-  }
-}
 
 extension UIColor {
   /// Mirrors `RNBMColorParse` for tick interpolation.

@@ -10,23 +10,22 @@ import {
   LONG_STEP_INTERVAL,
   TICK_CELL_PADDING_LEFT,
   TICK_CELL_PADDING_RIGHT,
-  UNIT_CONFIG,
+  nativeRulerBoundsForUnit,
 } from './constants/rulerConstants';
 
+/**
+ * Native ruler: `initialValue` and `onValueChange` always use **centimeters**; `unit` only affects the on-screen scale (cm vs ft/in).
+ */
 export function HeightRuler({
   unit,
   initialValue,
   onValueChange,
-  min: minProp,
-  max: maxProp,
-  step: stepProp,
-  fractionDigits: fractionDigitsProp,
   verticalViewportHeight = DEFAULT_VERTICAL_VIEWPORT,
   formatValue,
   onScrollBegin,
   onScrollEnd,
   fontFamily,
-  tickLabelFontSize = 24,
+  tickLabelFontSize = 19,
   tickSpacing = 15,
   minorTickHeight = 18,
   midTickHeight = 28,
@@ -47,11 +46,7 @@ export function HeightRuler({
   glassActiveNeighborTickColor,
   style,
 }: HeightRulerProps) {
-  const unitConfig = UNIT_CONFIG[unit];
-  const min = minProp ?? unitConfig.min;
-  const max = maxProp ?? unitConfig.max;
-  const step = stepProp ?? unitConfig.step;
-  const fractionDigits = fractionDigitsProp ?? unitConfig.fractionDigits;
+  const a11yBounds = nativeRulerBoundsForUnit(unit);
 
   const rulerTrackWidth = useMemo(
     () =>
@@ -61,11 +56,6 @@ export function HeightRuler({
       majorTickHeight +
       TICK_CELL_PADDING_RIGHT,
     [majorTickHeight],
-  );
-
-  const minInches = useMemo(
-    () => (unit === 'ft' ? Math.round(min * 12) : 0),
-    [unit, min],
   );
 
   const currentValueRef = useRef(initialValue);
@@ -91,10 +81,12 @@ export function HeightRuler({
   const nativeProps = useMemo(
     () => ({
       unit,
-      rangeMin: min,
-      rangeMax: max,
-      step,
-      fractionDigits,
+      // Fabric still requires these props; native iOS/Android ignore them and use fixed bounds.
+      rangeMin: 0,
+      rangeMax: 0,
+      step: 0,
+      fractionDigits: 0,
+      imperialMinInches: 0,
       initialValue,
       verticalViewportHeight,
       rulerTrackWidth,
@@ -109,7 +101,6 @@ export function HeightRuler({
       tickLabelFontSize,
       fontFamily: fontFamily || undefined,
       longStepInterval: LONG_STEP_INTERVAL,
-      imperialMinInches: unit === 'ft' ? minInches : 12,
       colorBackground: backgroundColor,
       colorRulerChrome: rulerChromeColor,
       colorTick: tickColor,
@@ -126,10 +117,6 @@ export function HeightRuler({
     }),
     [
       unit,
-      min,
-      max,
-      step,
-      fractionDigits,
       initialValue,
       verticalViewportHeight,
       rulerTrackWidth,
@@ -151,7 +138,6 @@ export function HeightRuler({
       glassSheenColor,
       glassRimColor,
       glassLiquidBorderColor,
-      minInches,
       activeTickColor,
       activeNeighborTickColor,
     ],
@@ -175,8 +161,8 @@ export function HeightRuler({
       accessibilityRole="adjustable"
       accessibilityLabel="Height ruler, vertical"
       accessibilityValue={{
-        min,
-        max,
+        min: a11yBounds.min,
+        max: a11yBounds.max,
         now: currentValueRef.current,
         text: formatValue ? formatValue(currentValueRef.current) : undefined,
       }}

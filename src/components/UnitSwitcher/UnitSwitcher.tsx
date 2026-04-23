@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   interpolate,
@@ -40,6 +40,8 @@ export function UnitSwitcher({
 }: UnitSwitcherProps) {
   const optionWidth = 64;
   const trackPadding = 3;
+  const tapThreshold = 12;
+  const trackWidthRef = useRef(136);
   const thumbX = useSharedValue(unit === 'ft' ? optionWidth : 0);
   const pressMotion = useSharedValue(0);
   const dragStartX = useSharedValue(0);
@@ -95,19 +97,27 @@ export function UnitSwitcher({
           const next = Math.min(optionWidth, Math.max(0, dragStartX.value + g.dx));
           thumbX.value = next;
         },
-        onPanResponderRelease: (_, g) => {
+        onPanResponderRelease: (evt, g) => {
           isDragging.value = false;
           pressMotion.value = withTiming(0, { duration: 120 });
           const midpoint = optionWidth / 2;
           const velocityThreshold = 0.3;
-          const nextUnit: HeightUnit =
-            Math.abs(g.vx) > velocityThreshold
-              ? g.vx > 0
-                ? 'ft'
-                : 'cm'
-              : thumbX.value > midpoint
-                ? 'ft'
-                : 'cm';
+          const isTap =
+            Math.abs(g.dx) < tapThreshold &&
+            Math.abs(g.dy) < tapThreshold &&
+            Math.abs(g.vx) < velocityThreshold &&
+            Math.abs(g.vy) < velocityThreshold;
+
+          let nextUnit: HeightUnit;
+          if (isTap) {
+            const w = trackWidthRef.current;
+            const x = evt.nativeEvent.locationX;
+            nextUnit = x < w / 2 ? 'cm' : 'ft';
+          } else if (Math.abs(g.vx) > velocityThreshold) {
+            nextUnit = g.vx > 0 ? 'ft' : 'cm';
+          } else {
+            nextUnit = thumbX.value > midpoint ? 'ft' : 'cm';
+          }
           settleThumb(nextUnit);
           if (nextUnit !== unit) {
             onUnitChangeRef.current?.(nextUnit);
@@ -119,30 +129,25 @@ export function UnitSwitcher({
           settleThumb(unit);
         },
       }),
-    [dragStartX, isDragging, optionWidth, pressMotion, settleThumb, thumbX, unit],
+    [
+      dragStartX,
+      isDragging,
+      optionWidth,
+      pressMotion,
+      settleThumb,
+      tapThreshold,
+      thumbX,
+      unit,
+    ],
   );
-
-  const handlePressIn = () => {
-    pressMotion.value = withTiming(1, { duration: 90 });
-  };
-
-  const handlePressOut = () => {
-    if (!isDragging.value) {
-      pressMotion.value = withTiming(0, { duration: 120 });
-    }
-  };
-
-  const handleSelect = (nextUnit: HeightUnit) => {
-    settleThumb(nextUnit);
-    if (nextUnit !== unit) {
-      onUnitChange?.(nextUnit);
-    }
-  };
 
   return (
     <View
       style={[styles.base, { backgroundColor: trackColor }, style]}
       accessibilityRole="tablist"
+      onLayout={(e) => {
+        trackWidthRef.current = e.nativeEvent.layout.width;
+      }}
       {...panResponder.panHandlers}
     >
       <Animated.View
@@ -170,14 +175,12 @@ export function UnitSwitcher({
       {(['cm', 'ft'] as const).map((option) => {
         const selected = unit === option;
         return (
-          <Pressable
+          <View
             key={option}
-            onPress={() => handleSelect(option)}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             style={styles.option}
+            pointerEvents="none"
           >
             <Text
               style={[
@@ -191,7 +194,7 @@ export function UnitSwitcher({
             >
               {option}
             </Text>
-          </Pressable>
+          </View>
         );
       })}
     </View>

@@ -3,25 +3,16 @@ import type { ViewStyle } from 'react-native';
 import type { HeightUnit } from '../../types';
 
 export interface HeightRulerProps {
-  /** Current unit (controlled) */
+  /** Current unit (controlled) — display only; emitted values are always cm. */
   unit: HeightUnit;
   /**
-   * Current value in the current unit. Treated as the initial scroll
-   * position — not reactive to every keystroke.
+   * Initial scroll position in **centimeters** (native source of truth), regardless of `unit`.
    */
   initialValue: number;
   /**
-   * Called whenever the ruler value changes (including after a unit
-   * switch, with the converted value). Always receives a string
-   * pre-formatted with the correct fractionDigits.
+   * Called when the selection changes. `value` is always a centimeter amount (decimal string, e.g. `"175.00"`).
    */
   onValueChange?: (value: string) => void;
-
-  // ── Optional overrides (defaults come from UNIT_CONFIG[unit]) ──────
-  min?: number;
-  max?: number;
-  step?: number;
-  fractionDigits?: number;
 
   // ── Rendering ──────────────────────────────────────────────────────
   /** Visible height of the vertical ruler viewport. Default: 240. */
@@ -32,6 +23,7 @@ export interface HeightRulerProps {
 
   // Typography
   fontFamily?: string;
+  /** Point size for tick labels (major ticks and values under the glass). Default: 19. */
   tickLabelFontSize?: number;
 
   // Ruler geometry

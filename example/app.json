@@ -10,7 +10,8 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "supportsTablet": true,
-      "bundleIdentifier": "com.conradorr.bodymetrics.example"
+      "bundleIdentifier": "com.conradorr.bodymetrics.example",
+      "appleTeamId": "9N8NPNT7Q4"
     },
     "android": {
       "package": "com.conradorr.bodymetrics.example",
