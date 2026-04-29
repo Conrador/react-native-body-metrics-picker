@@ -1,12 +1,30 @@
 {
   "name": "react-native-body-metrics-picker",
   "version": "0.1.0",
-  "description": "Beautiful, reusable body metrics pickers for React Native — height, weight, age",
+  "description": "Native Fabric height ruler (plus optional Reanimated cm/ft switcher) for React Native.",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
   "types": "lib/typescript/index.d.ts",
   "react-native": "src/index.ts",
   "source": "src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/react-native-body-metrics-picker"
+  },
+  "license": "MIT",
+  "author": "",
+  "keywords": [
+    "react-native",
+    "fabric",
+    "height",
+    "ruler",
+    "picker",
+    "body-metrics",
+    "native-ui"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "codegenConfig": {
     "name": "RNBodyMetricsPickerSpec",
     "type": "components",
@@ -26,43 +44,25 @@
     "ios",
     "android",
     "react-native-body-metrics-picker.podspec",
+    "README.md",
+    "LICENSE",
     "!**/__tests__"
   ],
+
+
   "scripts": {
     "typescript": "tsc --noEmit",
     "build": "bob build",
-    "prepare": "bob build",
+    "prepublishOnly": "bob build",
     "lint": "eslint 'src/**/*.{ts,tsx}' 'example/**/*.{ts,tsx}'",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' 'example/**/*.{ts,tsx}' --fix",
     "format": "prettier --write 'src/**/*.{ts,tsx}' 'example/**/*.{ts,tsx}' '*.json' '*.md'",
     "format:check": "prettier --check 'src/**/*.{ts,tsx}' 'example/**/*.{ts,tsx}' '*.json' '*.md'"
   },
-  "keywords": [
-    "react-native",
-    "picker",
-    "height",
-    "weight",
-    "age",
-    "body-metrics",
-    "ruler",
-    "fitness",
-    "health",
-    "onboarding"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/user/react-native-body-metrics-picker"
-  },
-  "author": "",
-  "license": "MIT",
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-native": ">=0.74.0",
     "react-native-reanimated": ">=3.0.0"
-  },
-  "resolutions": {
-    "react": "19.2.0",
-    "react-native": "0.83.6"
   },
   "devDependencies": {
     "@types/react": "~19.2.10",

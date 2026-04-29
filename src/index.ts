@@ -17,4 +17,10 @@ export type {
   RulerConfig,
 } from './types';
 
-export { formatHeightRulerCmString } from './components/HeightRuler/constants/rulerConstants';
+export {
+  CM_PER_FOOT,
+  formatHeightRulerCmString,
+  NATIVE_RULER_CM_MAX,
+  NATIVE_RULER_CM_MIN,
+  nativeRulerBoundsForUnit,
+} from './components/HeightRuler/constants/rulerConstants';

@@ -1,119 +1,150 @@
 # react-native-body-metrics-picker
 
-Reusable body metrics UI for React Native — starting with **height**.
-
-**HeightRuler** is implemented as a **native view** (iOS UIKit + Android `NestedScrollView`). The JS layer only wraps `UnitSwitcher` and passes theme/range props — **no** `react-native-reanimated` or `react-native-gesture-handler`.
+React Native **native** vertical height ruler (**Fabric** on both platforms) plus an optional **`UnitSwitcher`** (JavaScript / Reanimated) for cm ⇄ ft. **Height picker** UX is centred on **`HeightRuler`** — there is no separate “HeightPicker” component name; use `HeightRuler` from this package.
 
 ## Features
 
-- **HeightRuler** — native vertical ruler, snap scrolling, optional cm/ft switcher (JS)
-- Metric & imperial support with accurate conversions
-- Accessible (VoiceOver / TalkBack)
-- TypeScript-first
-- Theming via a flat `theme` prop
+- **`HeightRuler`** — Fabric `UIView` / Android custom view with snap scrolling, glass “pill”, haptics-oriented behaviour  
+- **`UnitSwitcher`** — segmented control styling (thumb spring, drag) powered by **`react-native-reanimated`** — keep it beside the ruler when you want unit switching  
+- Values from the ruler are **`onValueChange` centimetre decimal strings**; `unit` on `HeightRuler` only affects **display** scaling (cm vs ft/in labels)  
+- Imperative **`ref`** API: `getSnapshot()`, `getValueCm()`, **`subscribe()`**, plus **`useHeightRulerSnapshot()`** for reactive readouts  
+- TypeScript typings for exported components  
+- Accessible labels (snap position uses native a11y value ranges)
+
+### Not in scope (yet)
+
+- Weight / age pickers mentioned in `package.json` description are placeholders for future work — **only HeightRuler + UnitSwitcher ship today.**
+
+## Peer dependencies
+
+| Package | Notes |
+|---------|------|
+| `react` | `>= 18` |
+| `react-native` | New Architecture / Fabric assumed for the ruler (tested against `>= 0.74`) |
+| `react-native-reanimated` | **`UnitSwitcher`** only. If you use **only `HeightRuler`** and build your own switcher, Reanimated must still satisfy the peer constraint unless you duplicate the dependency workaround (recommended: declare Reanimated anyway). |
 
 ## Installation
+
+Public registry:
 
 ```bash
 npm install react-native-body-metrics-picker
 ```
 
-### Peer dependencies
+Private scoped package (after you configure scope auth, e.g. npm org / GitHub Packages):
 
-- **react** `>=18`
-- **react-native** `>=0.72` (with autolinking so the iOS pod and Android library are linked)
+```bash
+npm install @your-scope/react-native-body-metrics-picker
+```
 
-No Reanimated, no Gesture Handler, no blur/haptics packages for the ruler.
+Then **iOS**: `pod install` in `ios/` (Codegen picks up specs from `node_modules`). **Android**: Gradle autolinking + New Architecture alignment with your app.
 
-## Quick start
+---
+
+## Quick start (`HeightRuler` + `UnitSwitcher`)
+
+`HeightRuler` has **no** `onUnitChange` prop — controlled **`unit`** + **`UnitSwitcher.onUnitChange`** live in your screen state:
 
 ```tsx
-import { HeightRuler, type HeightUnit } from 'react-native-body-metrics-picker';
+import { useCallback, useRef, useState } from 'react';
+import { View } from 'react-native';
+import {
+  HeightRuler,
+  UnitSwitcher,
+  useHeightRulerSnapshot,
+  type HeightRulerHandle,
+  type HeightUnit,
+} from 'react-native-body-metrics-picker';
 
-function MyScreen() {
-  const [height, setHeight] = useState('175');
+function HeightScreen() {
+  const rulerRef = useRef<HeightRulerHandle>(null);
   const [unit, setUnit] = useState<HeightUnit>('cm');
+  const { valueString } = useHeightRulerSnapshot(rulerRef, unit);
+
+  const handleValue = useCallback((cm: string) => {
+    // cm is source of truth, e.g. "175.00"
+    console.log(cm);
+  }, []);
 
   return (
-    <HeightRuler
-      unit={unit}
-      onUnitChange={setUnit}
-      initialValue={Number(height)}
-      onValueChange={setHeight}
-    />
+    <View style={{ height: 320 }}>
+      <UnitSwitcher unit={unit} onUnitChange={setUnit} />
+      <HeightRuler
+        ref={rulerRef}
+        key={unit}
+        unit={unit}
+        initialValue={175}
+        onValueChange={handleValue}
+      />
+    </View>
   );
 }
 ```
 
-Pass `onUnitChange` to show the built-in `cm / ft` switcher. The ruler converts the value on unit change and fires `onValueChange` and `onUnitChange`.
+Give the **`View` wrapping `HeightRuler` a real height** (or `flex: 1` under a bounded parent). The ruler applies a **`minHeight` (~240 dp)** so it stays usable in scroll views.
 
-## API (HeightRuler)
+---
 
-### Unit defaults
+## Behaviour & defaults
 
-| Unit | min | max | step | fractionDigits |
-| ---- | --- | --- | ---- | -------------- |
-| `cm` | 50  | 250 | 1    | 0              |
-| `ft` | **1′0″** (1.0 ft) | **~8′2″** (~98 in) | **1 inch** (1/12 ft) | 4 (strings use decimal feet snapped to inches) |
+### Native range (canonical)
 
-You can override `min`, `max`, `step`, `fractionDigits` for `cm`. The built-in `ft` scale is inch-based.
+Internally both platforms constrain height to **`100 cm` … `250 cm`** (JS `rangeMin` / `rangeMax` props exist mainly for codegen but **native clamps to this ruler band**).
 
 ### Layout
 
-The ruler’s **height** comes from the parent: use `style={{ flex: 1 }}` on a parent with bounded height, or wrap in a `View` with an explicit `height`. The root applies a **minimum** height (240 dp) so the control stays usable in scroll views.
+Height is driven by **parent layout**, not by a viewport prop: wrap in sized container / flex.
 
-### Conversion helpers
+### Colour & geometry APIs
 
-```tsx
-import { cmToFeetInches, feetInchesToCm } from 'react-native-body-metrics-picker';
+Colours and tick sizing are **flat props** on `HeightRuler` (`tickColor`, `majorTickHeight`, `glassActiveTickColor`, …).  
+**Android only:** `glassPillBackgroundColor`, `glassPillBorderRadius` (pill fill behind ticks). **iOS** uses system materials for the capsule.
 
-cmToFeetInches(180); // { feet: 5, inches: 11 }
-feetInchesToCm(5, 11); // 180
-```
+There is **no** consolidated `theme={{…}}` prop — style the ruler through the props documented in `HeightRuler.types.ts`.
 
-## Theming
+### Conversion / formatting helpers
 
-Pass a partial `BodyMetricsPickerTheme`; missing keys use `defaultTheme` / `resolveTheme`.
+Exported from the package root: **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**.
 
-```tsx
-import type { BodyMetricsPickerTheme } from 'react-native-body-metrics-picker';
+---
 
-const theme: BodyMetricsPickerTheme = {
-  colors: {
-    background: '#FFFFFF',
-    majorTick: '#111827',
-    tick: '#E5E7EB',
-    // …
-  },
-  typography: {
-    tickLabelSize: 13,
-  },
-  ruler: {
-    minorTickHeight: 16,
-    midTickHeight: 26,
-    majorTickHeight: 42,
-    tickWidth: 2,
-    tickSpacing: 14,
-  },
-};
+## Exports (`src/index.ts`)
 
-<HeightRuler theme={theme} /* … */ />;
-```
+- **`HeightRuler`**, **`useHeightRulerSnapshot`**, types **`HeightRulerProps`**, **`HeightRulerHandle`**, **`HeightRulerLiveSnapshot`**
+- **`UnitSwitcher`**, **`UnitSwitcherProps`**
+- **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**
+- Shared types: **`HeightUnit`**, **`UnitSystem`**, **`HeightValue`**, etc.
 
-See `src/theme/index.ts` for the full `BodyMetricsPickerTheme` shape.
+---
 
-## Example app
+## Example app (this repo)
 
 ```bash
 cd example
 yarn install
-npx expo start
+yarn start
+# Then iOS/Android from Expo CLI
 ```
 
-## Roadmap
+See **`example/src/app/index.tsx`** for Fabric demos and hero layout.
 
-- [ ] Native Fabric `HeightRuler` (iOS / Android) — native scroll, draw, blur/materials, haptics
-- [ ] Then: drop Reanimated + Gesture Handler from **peer** deps for consumers who only use native
+---
+
+## Publishing to npm
+
+- **`yarn build`** generates **`lib/`** (ignored in git — always run before checks that read compiled output ).
+- **`prepublishOnly`** runs **`bob build`** automatically during **`npm publish`**, so the tarball always includes **`lib/`**.
+
+Dry run locally: **`npm pack`** — files should match **`package.json`**’s **`files`** field (`lib/`, `src/`, `ios/`, `android/`, podspec, `README.md`, `LICENSE`, …).
+
+### Private scoped package / registry
+
+1. Use a **scoped name**, e.g. **`"@your-org/react-native-body-metrics-picker"`**.
+2. Add **`"publishConfig": { "access": "restricted" }`** for **private scoped** packages on the public npm registry (requires an npm org / appropriate plan).
+3. **`access: "restricted"` is not valid for unscoped package names** — rename to a scope or publish to GitHub/npm Enterprise private registry instead.
+4. In the consuming app: **`npm install @your-org/...`** (with registry auth configured), **`pod install`**, rebuild Android.
+
+---
 
 ## License
 
