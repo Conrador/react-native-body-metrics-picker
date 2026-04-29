@@ -1,17 +1,48 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Fraunces_600SemiBold, Fraunces_700Bold, useFonts as useFrauncesFonts } from '@expo-google-fonts/fraunces';
+import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from '@expo-google-fonts/outfit';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   HeightRuler,
   UnitSwitcher,
+  useHeightRulerSnapshot,
+  type HeightRulerHandle,
   type HeightUnit,
 } from 'react-native-body-metrics-picker';
 
 const DARK_CARD_BACKGROUND = '#0F172A';
 /** Same fill for card + native ruler (background + chrome) so nothing „gryzie” z tłem karty. */
 const AURORA_CARD_BG = '#F5F3FF';
+
+/** Android: native `glassPillBackgroundColor` / `glassPillBorderRadius` (HeightRuler passes them only on Android). */
+const androidPill = {
+  /** Opaque black pill on white card (cm-only demo). */
+  lightBlack: { glassPillBackgroundColor: '#000000', glassPillBorderRadius: 12 },
+  light: { glassPillBackgroundColor: '#E2E8F0', glassPillBorderRadius: 12 },
+  aurora: { glassPillBackgroundColor: '#E9D5FF', glassPillBorderRadius: 12 },
+  dark: { glassPillBackgroundColor: '#1E293B', glassPillBorderRadius: 12 },
+  /** Jewel hero card — navy glass behind ticks. */
+  jewel: { glassPillBackgroundColor: '#1e3a5f', glassPillBorderRadius: 16 },
+} as const;
+
+/** Hero showcase — midnight, amber, teal highlights. */
+const HERO = {
+  cardBg: '#0c1222',
+  cardBorder: 'rgba(251, 191, 36, 0.28)',
+  insetBg: '#111827',
+  gold: '#fbbf24',
+  goldSoft: '#fcd34d',
+  muted: '#94a3b8',
+  muted2: '#64748b',
+  tickMinor: '#334155',
+  tickMid: '#64748b',
+  tickMajor: '#e2e8f0',
+  active: '#2dd4bf',
+  activeNeighbor: 'rgba(45, 212, 191, 0.72)',
+} as const;
 
 const CM_PER_FOOT = 30.48;
 
@@ -32,42 +63,139 @@ function formatFeetDecimalFromCm(cmValue: string): string {
   return (cm / CM_PER_FOOT).toFixed(2);
 }
 
+function DemoDebugCmOnly({ rulerRef }: { rulerRef: React.RefObject<HeightRulerHandle | null> }) {
+  const { valueString } = useHeightRulerSnapshot(rulerRef);
+  return (
+    <View style={styles.debugContainer}>
+      <Text style={styles.debugLabel}>Value</Text>
+      <Text style={styles.debugValue}>{valueString} cm</Text>
+    </View>
+  );
+}
+
+function DemoDebugFtOnly({ rulerRef }: { rulerRef: React.RefObject<HeightRulerHandle | null> }) {
+  const { valueString } = useHeightRulerSnapshot(rulerRef);
+  return (
+    <View style={styles.debugContainer}>
+      <Text style={styles.debugLabel}>Value</Text>
+      <Text style={styles.debugValue}>
+        {formatFeetInchesFromCm(valueString)} ({formatFeetDecimalFromCm(valueString)} ft) · {valueString}{' '}
+        cm
+      </Text>
+    </View>
+  );
+}
+
+function DemoDebugAurora({ rulerRef }: { rulerRef: React.RefObject<HeightRulerHandle | null> }) {
+  const { valueString } = useHeightRulerSnapshot(rulerRef);
+  return (
+    <View style={styles.debugContainer}>
+      <Text style={styles.debugLabel}>Value</Text>
+      <Text style={styles.debugValue}>{valueString} cm</Text>
+    </View>
+  );
+}
+
+function DemoDebugSwitcher({
+  rulerRef,
+  switchKey,
+}: {
+  rulerRef: React.RefObject<HeightRulerHandle | null>;
+  switchKey: HeightUnit;
+}) {
+  const { valueString, unit } = useHeightRulerSnapshot(rulerRef, switchKey);
+  return (
+    <View style={styles.debugContainer}>
+      <Text style={styles.debugLabel}>Value</Text>
+      <Text style={styles.debugValue}>
+        {unit === 'ft'
+          ? `${formatFeetInchesFromCm(valueString)} (${formatFeetDecimalFromCm(valueString)} ft) · ${valueString} cm`
+          : `${valueString} cm`}
+      </Text>
+    </View>
+  );
+}
+
+function DemoDebugDark({
+  rulerRef,
+  switchKey,
+}: {
+  rulerRef: React.RefObject<HeightRulerHandle | null>;
+  switchKey: HeightUnit;
+}) {
+  const { valueString, unit } = useHeightRulerSnapshot(rulerRef, switchKey);
+  return (
+    <View style={[styles.debugContainer, styles.debugContainerDark]}>
+      <Text style={[styles.debugLabel, styles.debugLabelDark]}>Value</Text>
+      <Text style={[styles.debugValue, styles.debugValueDark]}>
+        {unit === 'ft'
+          ? `${formatFeetInchesFromCm(valueString)} (${formatFeetDecimalFromCm(valueString)} ft) · ${valueString} cm`
+          : `${valueString} cm`}
+      </Text>
+    </View>
+  );
+}
+
+function DemoHeroReadout({
+  rulerRef,
+  heroUnit,
+}: {
+  rulerRef: React.RefObject<HeightRulerHandle | null>;
+  heroUnit: HeightUnit;
+}) {
+  const { valueString, unit } = useHeightRulerSnapshot(rulerRef, heroUnit);
+  return (
+    <View style={styles.heroValueColumn}>
+      <Text
+        style={[styles.heroValueMain, unit === 'ft' ? styles.heroValueMainFt : null]}
+        numberOfLines={unit === 'ft' ? 2 : 1}
+        adjustsFontSizeToFit={unit === 'ft'}
+        minimumFontScale={0.65}
+      >
+        {unit === 'cm' ? `${Math.round(Number(valueString))}` : formatFeetInchesFromCm(valueString)}
+      </Text>
+      <Text style={styles.heroValueUnit}>
+        {unit === 'cm' ? 'centimeters' : 'feet & inches'}
+      </Text>
+      <Text style={styles.heroValueSub}>
+        {unit === 'ft'
+          ? `${valueString} cm · ${formatFeetDecimalFromCm(valueString)} ft`
+          : `${formatFeetInchesFromCm(valueString)} · ${formatFeetDecimalFromCm(valueString)} ft`}
+      </Text>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
-  const [cmOnlyValue, setCmOnlyValue] = useState('175');
-  const [ftOnlyValue, setFtOnlyValue] = useState('175');
-  const [switcherValue, setSwitcherValue] = useState('175');
+  const [fontsLoaded] = useFrauncesFonts({
+    Fraunces_700Bold,
+    Fraunces_600SemiBold,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+  });
+
   const [switcherUnit, setSwitcherUnit] = useState<HeightUnit>('cm');
-  const [darkSwitcherValue, setDarkSwitcherValue] = useState('178');
   const [darkSwitcherUnit, setDarkSwitcherUnit] = useState<HeightUnit>('cm');
-  const [auroraValue, setAuroraValue] = useState('172');
+  const [heroUnit, setHeroUnit] = useState<HeightUnit>('cm');
 
-  const handleCmOnlyChange = useCallback((value: string) => {
-    setCmOnlyValue(value);
-  }, []);
-
-  const handleFtOnlyChange = useCallback((value: string) => {
-    setFtOnlyValue(value);
-  }, []);
-
-  const handleSwitcherRulerChange = useCallback((value: string) => {
-    console.log('HANDLE SWITCHER RULER CHANGE', value);
-    setSwitcherValue(value);
-  }, []);
+  const cmOnlyRulerRef = useRef<HeightRulerHandle>(null);
+  const ftOnlyRulerRef = useRef<HeightRulerHandle>(null);
+  const auroraRulerRef = useRef<HeightRulerHandle>(null);
+  const switcherRulerRef = useRef<HeightRulerHandle>(null);
+  const darkRulerRef = useRef<HeightRulerHandle>(null);
+  const heroRulerRef = useRef<HeightRulerHandle>(null);
 
   const handleSwitcherUnitChange = useCallback((unit: HeightUnit) => {
     setSwitcherUnit(unit);
-  }, []);
-
-  const handleDarkSwitcherRulerChange = useCallback((value: string) => {
-    setDarkSwitcherValue(value);
   }, []);
 
   const handleDarkSwitcherUnitChange = useCallback((unit: HeightUnit) => {
     setDarkSwitcherUnit(unit);
   }, []);
 
-  const handleAuroraChange = useCallback((value: string) => {
-    setAuroraValue(value);
+  const handleHeroUnitChange = useCallback((unit: HeightUnit) => {
+    setHeroUnit(unit);
   }, []);
 
   const auroraLabelFont = Platform.select({
@@ -76,11 +204,23 @@ export default function HomeScreen() {
     default: undefined,
   });
 
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
+        <StatusBar style="dark" />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
       <StatusBar style="dark" />
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={false}
+      >
         <Text style={styles.title}>Body Metrics Picker</Text>
         <Text style={styles.subtitle}>Fabric HeightRuler (react-native-body-metrics-picker)</Text>
 
@@ -93,25 +233,21 @@ export default function HomeScreen() {
           <View style={styles.rulerCard}>
             <View style={styles.rulerWrap}>
               <HeightRuler
+                ref={cmOnlyRulerRef}
                 unit="cm"
-                initialValue={Number(cmOnlyValue)}
-                onValueChange={handleCmOnlyChange}
+                initialValue={175}
                 tickColor="#E5E7EB"
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
-                tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
                 majorTickHeight={42}
                 tickWidth={2}
                 tickSpacing={14}
+                {...(Platform.OS === 'android' ? androidPill.lightBlack : {})}
               />
             </View>
-          </View>
-
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugLabel}>Value</Text>
-            <Text style={styles.debugValue}>{cmOnlyValue} cm</Text>
+            <DemoDebugCmOnly rulerRef={cmOnlyRulerRef} />
           </View>
         </View>
 
@@ -122,28 +258,21 @@ export default function HomeScreen() {
           <View style={styles.rulerCard}>
             <View style={styles.rulerWrap}>
               <HeightRuler
+                ref={ftOnlyRulerRef}
                 unit="ft"
-                initialValue={Number(ftOnlyValue)}
-                onValueChange={handleFtOnlyChange}
+                initialValue={175}
                 tickColor="#E5E7EB"
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
-                tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
                 majorTickHeight={42}
                 tickWidth={2}
                 tickSpacing={14}
+                {...(Platform.OS === 'android' ? { glassPillBorderRadius: 12 } : {})}
               />
             </View>
-          </View>
-
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugLabel}>Value</Text>
-            <Text style={styles.debugValue}>
-              {formatFeetInchesFromCm(ftOnlyValue)} ({formatFeetDecimalFromCm(ftOnlyValue)} ft) ·{' '}
-              {ftOnlyValue} cm
-            </Text>
+            <DemoDebugFtOnly rulerRef={ftOnlyRulerRef} />
           </View>
         </View>
 
@@ -151,19 +280,17 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Ruler - cm (custom theme)</Text>
           <Text style={styles.sectionDescription}>
             Inne kolory ticków i szkła oraz{' '}
-            <Text style={styles.inlineCode}>fontFamily</Text> /{' '}
-            <Text style={styles.inlineCode}>tickLabelFontSize</Text> — etykiety korzystają z kolorów
-            major/mid ticków po stronie natywnej.
+            <Text style={styles.inlineCode}>fontFamily</Text> — rozmiar etykiet linijki jest stały po stronie
+            natywnej (19 pt/sp); etykiety biorą kolory major/mid ticków.
           </Text>
 
           <View style={[styles.rulerCard, styles.rulerCardAurora]}>
             <View style={styles.rulerWrap}>
               <HeightRuler
+                ref={auroraRulerRef}
                 unit="cm"
-                initialValue={Number(auroraValue)}
-                onValueChange={handleAuroraChange}
+                initialValue={172}
                 fontFamily={auroraLabelFont}
-                tickLabelFontSize={21}
                 tickColor="#DDD6FE"
                 midTickColor="#7C3AED"
                 majorTickColor="#4C1D95"
@@ -174,20 +301,18 @@ export default function HomeScreen() {
                 majorTickHeight={44}
                 tickWidth={2}
                 tickSpacing={14}
+                {...(Platform.OS === 'android' ? androidPill.aurora : {})}
               />
             </View>
-          </View>
-
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugLabel}>Value</Text>
-            <Text style={styles.debugValue}>{auroraValue} cm</Text>
+            <DemoDebugAurora rulerRef={auroraRulerRef} />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ruler - cm/ft switcher</Text>
           <Text style={styles.sectionDescription}>
-            JS/Reanimated switcher with drag + spring thumb animation.
+            JS/Reanimated switcher with drag + spring thumb. Android uses a Material-style track, elevation,
+            and Roboto-friendly labels; iOS keeps the glass thumb sheen.
           </Text>
 
           <View style={styles.rulerCard}>
@@ -195,38 +320,35 @@ export default function HomeScreen() {
               <UnitSwitcher
                 unit={switcherUnit}
                 onUnitChange={handleSwitcherUnitChange}
-                trackColor="#F3F4F6"
-                thumbColor="#FFFFFF"
-                activeTextColor="#111827"
-                inactiveTextColor="#6B7280"
-                labelFontSize={16}
+                {...(Platform.OS === 'ios'
+                  ? {
+                      trackColor: '#F3F4F6',
+                      thumbColor: '#FFFFFF',
+                      activeTextColor: '#111827',
+                      inactiveTextColor: '#6B7280',
+                      labelFontSize: 16,
+                    }
+                  : {})}
               />
             </View>
             <View style={styles.rulerWrap}>
               <HeightRuler
+                ref={switcherRulerRef}
+                key={switcherUnit}
                 unit={switcherUnit}
-                initialValue={Number(switcherValue)}
-                onValueChange={handleSwitcherRulerChange}
+                initialValue={175}
                 tickColor="#E5E7EB"
                 midTickColor="#6B7280"
                 majorTickColor="#111827"
-                tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
                 majorTickHeight={42}
                 tickWidth={2}
                 tickSpacing={14}
+                {...(Platform.OS === 'android' ? androidPill.light : {})}
               />
             </View>
-          </View>
-
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugLabel}>Value</Text>
-            <Text style={styles.debugValue}>
-              {switcherUnit === 'ft'
-                ? `${formatFeetInchesFromCm(switcherValue)} (${formatFeetDecimalFromCm(switcherValue)} ft) · ${switcherValue} cm`
-                : `${switcherValue} cm`}
-            </Text>
+            <DemoDebugSwitcher rulerRef={switcherRulerRef} switchKey={switcherUnit} />
           </View>
         </View>
 
@@ -252,35 +374,84 @@ export default function HomeScreen() {
             </View>
             <View style={styles.rulerWrap}>
               <HeightRuler
+                ref={darkRulerRef}
+                key={darkSwitcherUnit}
                 unit={darkSwitcherUnit}
-                initialValue={Number(darkSwitcherValue)}
-                onValueChange={handleDarkSwitcherRulerChange}
+                initialValue={178}
                 tickColor="#374151"
                 midTickColor="#9CA3AF"
                 majorTickColor="#E5E7EB"
                 glassActiveTickColor="#60A5FA"
                 glassActiveNeighborTickColor="rgba(96, 165, 250, 0.7)"
-                tickLabelFontSize={19}
                 minorTickHeight={16}
                 midTickHeight={26}
                 majorTickHeight={42}
                 tickWidth={2}
                 tickSpacing={14}
+                {...(Platform.OS === 'android' ? androidPill.dark : {})}
               />
             </View>
+            <DemoDebugDark rulerRef={darkRulerRef} switchKey={darkSwitcherUnit} />
           </View>
+        </View>
 
-          <View style={[styles.debugContainer, styles.debugContainerDark]}>
-            <Text style={[styles.debugLabel, styles.debugLabelDark]}>Value</Text>
-            <Text style={[styles.debugValue, styles.debugValueDark]}>
-              {darkSwitcherUnit === 'ft'
-                ? `${formatFeetInchesFromCm(darkSwitcherValue)} (${formatFeetDecimalFromCm(darkSwitcherValue)} ft) · ${darkSwitcherValue} cm`
-                : `${darkSwitcherValue} cm`}
-            </Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Showcase — ruler & switcher</Text>
+          <Text style={styles.sectionDescription}>
+            Linijka po lewej, duża wartość Fraunces po prawej — bursztyn + morski pill.
+          </Text>
+
+          <View style={styles.heroCard}>
+            <Text style={styles.heroEyebrow}>Your height</Text>
+            <View style={styles.heroSwitcherWrap}>
+              <UnitSwitcher
+                unit={heroUnit}
+                onUnitChange={handleHeroUnitChange}
+                fontFamily="Outfit_600SemiBold"
+                labelFontSize={15}
+                trackColor={
+                  Platform.OS === 'android' ? 'rgba(255,255,255,0.1)' : 'rgba(148, 163, 184, 0.14)'
+                }
+                thumbColor={Platform.OS === 'android' ? HERO.goldSoft : HERO.gold}
+                activeTextColor="#0f172a"
+                inactiveTextColor={HERO.muted}
+                thumbGlassBorderColor="transparent"
+                thumbSheenColor="rgba(255,255,255,0.35)"
+              />
+            </View>
+
+            <View style={styles.heroRulerTrackWrap}>
+              <View style={styles.heroRulerRow}>
+                <View style={styles.heroRulerInset}>
+                  <HeightRuler
+                    ref={heroRulerRef}
+                    key={heroUnit}
+                    unit={heroUnit}
+                    initialValue={178}
+                    fontFamily="Fraunces_600SemiBold"
+                    verticalViewportHeight={Platform.OS === 'ios' ? 340 : 320}
+                    tickColor={HERO.tickMinor}
+                    midTickColor={HERO.tickMid}
+                    majorTickColor={HERO.tickMajor}
+                    glassActiveTickColor={HERO.active}
+                    glassActiveNeighborTickColor={HERO.activeNeighbor}
+                    minorTickHeight={17}
+                    midTickHeight={28}
+                    majorTickHeight={46}
+                    tickWidth={2}
+                    tickSpacing={15}
+                    {...(Platform.OS === 'android' ? androidPill.jewel : {})}
+                  />
+                  </View>
+                <View style={styles.heroReadoutWrap} pointerEvents="box-none">
+                  <DemoHeroReadout rulerRef={heroRulerRef} heroUnit={heroUnit} />
+                </View>
+              </View>
+            </View>
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
   );
 }
 
@@ -325,7 +496,7 @@ const styles = StyleSheet.create({
   rulerCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: 'visible',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -390,5 +561,103 @@ const styles = StyleSheet.create({
   },
   debugValueDark: {
     color: '#E5E7EB',
+  },
+  heroCard: {
+    backgroundColor: HERO.cardBg,
+    borderRadius: 28,
+    paddingTop: 26,
+    paddingBottom: 8,
+    borderWidth: 1,
+    borderColor: HERO.cardBorder,
+    shadowColor: '#fbbf24',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    elevation: 12,
+  },
+  heroEyebrow: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 11,
+    letterSpacing: 3,
+    color: HERO.muted,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  heroSwitcherWrap: {
+    alignItems: 'center',
+    marginBottom: 22,
+    paddingHorizontal: 20,
+  },
+  /** Row: fixed-width ruler + flex readout — avoids large numerals overlapping the native track. */
+  heroRulerRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    paddingLeft: Platform.OS === 'ios' ? 10 : 8,
+    paddingRight: 14,
+    columnGap: 12,
+  },
+  heroReadoutWrap: {
+    flex: 1,
+    minWidth: 136,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingLeft: 8,
+  },
+  heroValueColumn: {
+    width: '100%',
+    maxWidth: 220,
+    alignItems: 'flex-end',
+  },
+  heroValueMain: {
+    fontFamily: 'Fraunces_700Bold',
+    fontSize: 68,
+    lineHeight: 68,
+    letterSpacing: -2.2,
+    color: HERO.gold,
+    textAlign: 'right',
+    ...Platform.select({
+      android: { includeFontPadding: false },
+    }),
+  },
+  heroValueMainFt: {
+    fontSize: 62,
+    lineHeight: 64,
+    letterSpacing: -1.8,
+  },
+  heroValueUnit: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: 15,
+    color: HERO.goldSoft,
+    marginTop: 8,
+    opacity: 0.95,
+    textAlign: 'right',
+    ...Platform.select({
+      android: { includeFontPadding: false },
+    }),
+  },
+  heroValueSub: {
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 13,
+    color: HERO.muted2,
+    marginTop: 10,
+    lineHeight: 19,
+    textAlign: 'right',
+    ...Platform.select({
+      android: { includeFontPadding: false },
+    }),
+  },
+  heroRulerInset: {
+    backgroundColor: HERO.insetBg,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.12)',
+    overflow: 'visible',
+  },
+  heroRulerTrackWrap: {
+    paddingHorizontal: 18,
   },
 });

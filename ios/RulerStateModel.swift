@@ -27,10 +27,11 @@ final class RulerStateModel {
   var midTickHeight: Double = 28
   var majorTickHeight: Double = 40
   var tickWidth: Double = 1.5
-  var labelColumnWidth: Double = 52
+  var labelColumnWidth: Double = 60
   var labelToTickGap: Double = 5
   var tickCellPaddingRight: Double = 6
-  var tickLabelFontSize: Double = 19
+  /// Fixed; not set from JS — native pill/label layout depends on it.
+  let tickLabelFontSize: Double = 19
   var fontFamily: String?
   var longStepInterval: Int = 10
   var imperialMinInches: Int = 39

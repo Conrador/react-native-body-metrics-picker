@@ -17,6 +17,7 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
       .put("topScrollBegin", MapBuilder.of("registrationName", "onScrollBegin"))
       .put("topScrollEnd", MapBuilder.of("registrationName", "onScrollEnd"))
       .build()
+      .toMutableMap()
 
   @ReactProp(name = "unit")
   fun setUnit(view: HeightRulerView, unit: String?) {
@@ -55,8 +56,7 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
 
   @ReactProp(name = "initialValue")
   fun setInitialValue(view: HeightRulerView, v: Double) {
-    view.initialValue = v
-    view.markNeedsReload()
+    view.setInitialValueFromJs(v)
   }
 
   @ReactProp(name = "verticalViewportHeight")
@@ -119,12 +119,6 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
     view.markNeedsReload()
   }
 
-  @ReactProp(name = "tickLabelFontSize")
-  fun setTickLabelFontSize(view: HeightRulerView, v: Double) {
-    view.tickLabelFontSize = if (v > 0) v else 19.0
-    view.markNeedsReload()
-  }
-
   @ReactProp(name = "fontFamily")
   fun setFontFamily(view: HeightRulerView, v: String?) {
     view.fontFamily = v
@@ -145,31 +139,43 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
 
   @ReactProp(name = "colorTick")
   fun setColorTick(view: HeightRulerView, v: String?) {
-    view.colorTick = v ?: "#D1D5DB"
+    view.colorTick = v?.trim().orEmpty()
     view.markNeedsReload()
   }
 
   @ReactProp(name = "colorMidTick")
   fun setColorMidTick(view: HeightRulerView, v: String?) {
-    view.colorMidTick = v ?: "#6B7280"
+    view.colorMidTick = v?.trim().orEmpty()
     view.markNeedsReload()
   }
 
   @ReactProp(name = "colorMajorTick")
   fun setColorMajorTick(view: HeightRulerView, v: String?) {
-    view.colorMajorTick = v ?: "#374151"
+    view.colorMajorTick = v?.trim().orEmpty()
     view.markNeedsReload()
   }
 
   @ReactProp(name = "colorGlassActiveTick")
   fun setColorGlassActiveTick(view: HeightRulerView, v: String?) {
-    view.colorGlassActiveTick = v ?: "#0A84FF"
+    view.colorGlassActiveTick = v?.trim().orEmpty()
     view.markNeedsReload()
   }
 
   @ReactProp(name = "colorGlassActiveNeighborTick")
   fun setColorGlassActiveNeighborTick(view: HeightRulerView, v: String?) {
-    view.colorGlassActiveNeighborTick = v ?: "rgba(10, 132, 255, 0.72)"
+    view.colorGlassActiveNeighborTick = v?.trim().orEmpty()
     view.markNeedsReload()
+  }
+
+  @ReactProp(name = "glassPillBackgroundColor")
+  fun setGlassPillBackgroundColor(view: HeightRulerView, v: String?) {
+    view.glassPillBackgroundColor = v?.trim()?.takeIf { it.isNotEmpty() }
+    view.recalculatePillDerivedState()
+  }
+
+  @ReactProp(name = "glassPillBorderRadius")
+  fun setGlassPillBorderRadius(view: HeightRulerView, v: Double) {
+    view.glassPillBorderRadius = v
+    view.invalidatePillAndOverlay()
   }
 }

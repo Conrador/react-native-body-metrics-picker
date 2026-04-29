@@ -28,7 +28,6 @@ export interface NativeProps extends ViewProps {
   labelColumnWidth: Double;
   labelToTickGap: Double;
   tickCellPaddingRight: Double;
-  tickLabelFontSize: Double;
   fontFamily?: string | null;
   longStepInterval: Int32;
   imperialMinInches: Int32;
@@ -37,6 +36,15 @@ export interface NativeProps extends ViewProps {
   colorMajorTick: string;
   colorGlassActiveTick: string;
   colorGlassActiveNeighborTick: string;
+  /**
+   * Android-only (omit on iOS). Solid/tinted pill behind ticks; empty = default frosted white.
+   * Set from JS only when `Platform.OS === 'android'`.
+   */
+  glassPillBackgroundColor?: string | null;
+  /**
+   * Android-only (omit on iOS). Corner radius in dp; `0` = default (~16dp). Capped by half pill height.
+   */
+  glassPillBorderRadius?: Double;
   onValueChange?: DirectEventHandler<ValueChangeEvent> | null;
   onScrollBegin?: DirectEventHandler<EmptyScrollEvent> | null;
   onScrollEnd?: DirectEventHandler<EmptyScrollEvent> | null;

@@ -13,12 +13,18 @@ dist/
 example-legacy/
 
 # Native / Expo prebuild
+android/build/
+android/.gradle/
+android/app/build/
 example/ios/Pods/
 example/ios/build/
 example/android/build/
 example/android/.gradle/
 *.xcuserstate
 *.xcworkspace/xcuserdata/
+
+# Root codegen / build artefacts (dirs must be untracked: `git rm -r --cached build` once if already committed)
+/build/
 
 # Env & secrets
 .env

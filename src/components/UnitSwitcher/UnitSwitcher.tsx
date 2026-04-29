@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { PanResponder, StyleSheet, Text, View } from 'react-native';
+import { PanResponder, Platform, StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   interpolate,
@@ -10,6 +10,23 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { HeightUnit } from '../../types';
+
+const isAndroid = Platform.OS === 'android';
+const thumbPressScaleRange =
+  Platform.OS === 'android' ? ([1, 1.02] as const) : ([1, 1.03] as const);
+const thumbPressScaleYRange =
+  Platform.OS === 'android' ? ([1, 0.985] as const) : ([1, 0.97] as const);
+
+/** M3-style motion: slightly tighter than the iOS spring. */
+const springConfig = Platform.select({
+  android: { damping: 22, stiffness: 260, mass: 0.62 },
+  default: { damping: 16, stiffness: 180, mass: 0.8 },
+})!;
+
+const settleSpringConfig = Platform.select({
+  android: { damping: 23, stiffness: 280, mass: 0.6, velocity: 0 },
+  default: { damping: 17, stiffness: 190, mass: 0.78, velocity: 0 },
+})!;
 
 export interface UnitSwitcherProps {
   unit: HeightUnit;
@@ -28,18 +45,18 @@ export interface UnitSwitcherProps {
 export function UnitSwitcher({
   unit,
   onUnitChange,
-  trackColor = '#F3F4F6',
+  trackColor = Platform.select({ android: '#E8EAED', default: '#F3F4F6' }),
   thumbColor = '#FFFFFF',
-  activeTextColor = '#111827',
-  inactiveTextColor = '#6B7280',
+  activeTextColor = Platform.select({ android: '#1C1B1F', default: '#111827' }),
+  inactiveTextColor = Platform.select({ android: '#49454F', default: '#6B7280' }),
   thumbSheenColor = '#FFFFFF',
-  thumbGlassBorderColor = 'rgba(60, 60, 67, 0.16)',
+  thumbGlassBorderColor = Platform.select({ android: 'transparent', default: 'rgba(60, 60, 67, 0.16)' }),
   fontFamily,
   labelFontSize = 16,
   style,
 }: UnitSwitcherProps) {
   const optionWidth = 64;
-  const trackPadding = 3;
+  const trackPadding = isAndroid ? 4 : 3;
   const tapThreshold = 12;
   const trackWidthRef = useRef(136);
   const thumbX = useSharedValue(unit === 'ft' ? optionWidth : 0);
@@ -51,18 +68,14 @@ export function UnitSwitcher({
 
   useEffect(() => {
     if (isDragging.value) return;
-    thumbX.value = withSpring(unit === 'ft' ? optionWidth : 0, {
-      damping: 16,
-      stiffness: 180,
-      mass: 0.8,
-    });
+    thumbX.value = withSpring(unit === 'ft' ? optionWidth : 0, springConfig);
   }, [unit, thumbX, isDragging, optionWidth]);
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: thumbX.value },
-      { scaleX: interpolate(pressMotion.value, [0, 1], [1, 1.03]) },
-      { scaleY: interpolate(pressMotion.value, [0, 1], [1, 0.97]) },
+      { scaleX: interpolate(pressMotion.value, [0, 1], thumbPressScaleRange) },
+      { scaleY: interpolate(pressMotion.value, [0, 1], thumbPressScaleYRange) },
     ],
   }));
 
@@ -73,12 +86,7 @@ export function UnitSwitcher({
   const settleThumb = useCallback(
     (nextUnit: HeightUnit) => {
       const targetX = nextUnit === 'ft' ? optionWidth : 0;
-      thumbX.value = withSpring(targetX, {
-        damping: 17,
-        stiffness: 190,
-        mass: 0.78,
-        velocity: 0,
-      });
+      thumbX.value = withSpring(targetX, settleSpringConfig);
     },
     [optionWidth, thumbX],
   );
@@ -143,7 +151,12 @@ export function UnitSwitcher({
 
   return (
     <View
-      style={[styles.base, { backgroundColor: trackColor }, style]}
+      style={[
+        styles.base,
+        isAndroid ? styles.baseAndroid : null,
+        { backgroundColor: trackColor, padding: trackPadding },
+        style,
+      ]}
       accessibilityRole="tablist"
       onLayout={(e) => {
         trackWidthRef.current = e.nativeEvent.layout.width;
@@ -154,22 +167,26 @@ export function UnitSwitcher({
         pointerEvents="none"
         style={[
           styles.thumb,
+          isAndroid ? styles.thumbAndroid : null,
           {
             left: trackPadding,
             width: optionWidth,
             backgroundColor: thumbColor,
             borderColor: thumbGlassBorderColor,
+            borderWidth: isAndroid ? 0 : 1,
           },
           thumbStyle,
         ]}
       >
-        <Animated.View
-          style={[
-            styles.thumbSheen,
-            { backgroundColor: thumbSheenColor },
-            thumbSheenStyle,
-          ]}
-        />
+        {!isAndroid ? (
+          <Animated.View
+            style={[
+              styles.thumbSheen,
+              { backgroundColor: thumbSheenColor },
+              thumbSheenStyle,
+            ]}
+          />
+        ) : null}
       </Animated.View>
 
       {(['cm', 'ft'] as const).map((option) => {
@@ -179,12 +196,13 @@ export function UnitSwitcher({
             key={option}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            style={styles.option}
+            style={[styles.option, isAndroid ? styles.optionAndroid : null]}
             pointerEvents="none"
           >
             <Text
               style={[
                 styles.label,
+                isAndroid ? styles.labelAndroid : null,
                 {
                   color: selected ? activeTextColor : inactiveTextColor,
                   fontSize: labelFontSize,
@@ -206,17 +224,27 @@ const styles = StyleSheet.create({
     width: 136,
     height: 38,
     borderRadius: 999,
-    padding: 3,
     flexDirection: 'row',
     position: 'relative',
+  },
+  baseAndroid: {
+    height: 40,
+    // M3-style corners: smaller than full pill (iOS), closer to platform segmented controls.
+    borderRadius: 12,
   },
   thumb: {
     position: 'absolute',
     top: 3,
     bottom: 3,
     borderRadius: 999,
-    borderWidth: 1,
     overflow: 'hidden',
+  },
+  thumbAndroid: {
+    top: 4,
+    bottom: 4,
+    borderRadius: 8,
+    elevation: 2,
+    overflow: 'visible',
   },
   thumbSheen: {
     position: 'absolute',
@@ -233,8 +261,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  optionAndroid: {
+    height: 32,
+  },
   label: {
     fontWeight: '600',
     letterSpacing: 0.2,
+  },
+  labelAndroid: {
+    fontWeight: '500',
+    letterSpacing: 0.15,
+    includeFontPadding: false,
   },
 });

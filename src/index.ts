@@ -1,5 +1,9 @@
-export { HeightRuler } from './components/HeightRuler';
-export type { HeightRulerProps } from './components/HeightRuler';
+export { HeightRuler, useHeightRulerSnapshot } from './components/HeightRuler';
+export type {
+  HeightRulerHandle,
+  HeightRulerLiveSnapshot,
+  HeightRulerProps,
+} from './components/HeightRuler';
 export { UnitSwitcher } from './components/UnitSwitcher';
 export type { UnitSwitcherProps } from './components/UnitSwitcher';
 
@@ -12,3 +16,5 @@ export type {
   FeetInches,
   RulerConfig,
 } from './types';
+
+export { formatHeightRulerCmString } from './components/HeightRuler/constants/rulerConstants';

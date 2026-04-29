@@ -160,7 +160,7 @@ public final class RNHeightRulerHostingView: UIView {
     }
   }
 
-  @objc public var labelColumnWidth: Double = 52 {
+  @objc public var labelColumnWidth: Double = 60 {
     didSet {
       model.labelColumnWidth = labelColumnWidth
       scheduleRulerSync()
@@ -177,13 +177,6 @@ public final class RNHeightRulerHostingView: UIView {
   @objc public var tickCellPaddingRight: Double = 6 {
     didSet {
       model.tickCellPaddingRight = tickCellPaddingRight
-      scheduleRulerSync()
-    }
-  }
-
-  @objc public var tickLabelFontSize: Double = 19 {
-    didSet {
-      model.tickLabelFontSize = tickLabelFontSize
       scheduleRulerSync()
     }
   }

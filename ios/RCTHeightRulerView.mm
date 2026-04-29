@@ -126,7 +126,6 @@ static void RNBMHeightRulerApplyNativeBounds(RNHeightRulerHostingView *host, NSS
   _rulerHost.labelColumnWidth = newRulerProps.labelColumnWidth;
   _rulerHost.labelToTickGap = newRulerProps.labelToTickGap;
   _rulerHost.tickCellPaddingRight = newRulerProps.tickCellPaddingRight;
-  _rulerHost.tickLabelFontSize = newRulerProps.tickLabelFontSize;
   _rulerHost.fontFamily = RNBMNSString(newRulerProps.fontFamily);
   _rulerHost.longStepInterval = newRulerProps.longStepInterval;
   _rulerHost.colorTick = RNBMNSString(newRulerProps.colorTick);

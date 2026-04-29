@@ -1,5 +1,68 @@
 import UIKit
 
+// MARK: - Custom font (matches Expo / React Native `fontFamily` keys)
+
+private enum RulerExpoFontResolver {
+  private static var cache: [String: UIFont] = [:]
+
+  /// Resolves keys like `Fraunces_600SemiBold` to a loaded `UIFont`; `UIFont(name:)` alone often fails because CT uses a different face name.
+  static func uiFont(familyKey: String?, size: CGFloat) -> UIFont? {
+    guard let raw = familyKey?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+      return nil
+    }
+    let cacheKey = "\(raw)_\(size)"
+    if let hit = cache[cacheKey] {
+      return hit
+    }
+    if let exact = UIFont(name: raw, size: size) {
+      cache[cacheKey] = exact
+      return exact
+    }
+    guard let u = raw.firstIndex(of: "_") else { return nil }
+    let familyStem = String(raw[..<u])
+    let variant = String(raw[raw.index(after: u)...]).lowercased()
+    let facesForStem: [String] = UIFont.familyNames.flatMap { fam -> [String] in
+      if fam.compare(familyStem, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame {
+        return UIFont.fontNames(forFamilyName: fam)
+      }
+      if fam.replacingOccurrences(of: " ", with: "").caseInsensitiveCompare(familyStem) == .orderedSame {
+        return UIFont.fontNames(forFamilyName: fam)
+      }
+      return []
+    }
+
+    let faces = facesForStem.isEmpty ? UIFont.fontNames(forFamilyName: familyStem) : facesForStem
+    guard !faces.isEmpty else { return nil }
+
+    func pick(from names: [String]) -> UIFont? {
+      let ordered: [String] = {
+        if variant.contains("600"), variant.contains("semibold") || variant.contains("semi") {
+          let p = names.filter { $0.localizedCaseInsensitiveContains("SemiBold") }
+          return p.isEmpty ? names : p
+        }
+        if variant.contains("700") || (variant.contains("bold") && !variant.contains("semi")) {
+          let p = names.filter { n in
+            n.localizedCaseInsensitiveContains("Bold") && !n.localizedCaseInsensitiveContains("Semi")
+          }
+          return p.isEmpty ? names : p
+        }
+        if variant.contains("italic") {
+          let p = names.filter { $0.localizedCaseInsensitiveContains("Italic") }
+          return p.isEmpty ? names : p
+        }
+        return names
+      }()
+      return ordered.compactMap { UIFont(name: $0, size: size) }.first
+    }
+
+    let picked = pick(from: faces)
+    if let picked {
+      cache[cacheKey] = picked
+    }
+    return picked
+  }
+}
+
 // MARK: - Glass overlay (UIKit)
 
 private final class RulerGlassUIKitView: UIView {
@@ -148,7 +211,7 @@ private final class HeightRulerTickRowView: UIView {
     bar.layer.cornerRadius = 1
     bar.layer.masksToBounds = true
 
-    labelWidthConstraint = label.widthAnchor.constraint(equalToConstant: 52)
+    labelWidthConstraint = label.widthAnchor.constraint(equalToConstant: 60)
     barLeadingGapConstraint = bar.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 4)
     barWidthConstraint = bar.widthAnchor.constraint(equalToConstant: 40)
     barHeightConstraint = bar.heightAnchor.constraint(equalToConstant: 1.5)
@@ -343,6 +406,7 @@ private final class HeightRulerTickRowView: UIView {
 
     let sx = 1 + (waveXGain * wave * waveStrength)
     let sy = 1 + (waveYGain * wave * waveStrength)
+    // Horizontally scaled/translated ticks extend past nominal bar width — JS adds IOS_RULER_EXTRA_TRACK_DP so the UICollectionView does not clip the trailing edge.
     // Center tick nudges right most; neighbors under the glass nudge slightly right too (lekko wysunięte).
     let tickSelectionNudgeX: CGFloat = 5.6 * centerGlow
     let neighborNudgeX: CGFloat = 2.75 * neighborGlow
@@ -367,13 +431,8 @@ private final class HeightRulerTickRowView: UIView {
 
   private static func tickFont(model: RulerStateModel) -> UIFont {
     let size = CGFloat(model.tickLabelFontSize)
-    if let name = model.fontFamily, !name.isEmpty,
-       let base = UIFont(name: name, size: size)
-    {
-      if let d = base.fontDescriptor.withSymbolicTraits(.traitBold) {
-        return UIFont(descriptor: d, size: size)
-      }
-      return base
+    if let resolved = RulerExpoFontResolver.uiFont(familyKey: model.fontFamily, size: size) {
+      return resolved
     }
     return .systemFont(ofSize: size, weight: .semibold)
   }

@@ -2,6 +2,28 @@ import type { ViewStyle } from 'react-native';
 
 import type { HeightUnit } from '../../types';
 
+/** Live selection synchronized with native ruler (via ref). */
+export type HeightRulerLiveSnapshot = {
+  /** Centimeters — native source of truth. */
+  valueCm: number;
+  /** Decimal string from native, e.g. `"175.00"`. */
+  valueString: string;
+  /** Current `unit` prop on `<HeightRuler />`. */
+  unit: HeightUnit;
+};
+
+/** Imperative access: snapshots and optional live subscriptions (no React children / Context). */
+export type HeightRulerHandle = {
+  getValueCm: () => number;
+  getValueString: () => string;
+  getSnapshot: () => HeightRulerLiveSnapshot;
+  /**
+   * Called immediately with the latest snapshot, then on every native change.
+   * Returns unsubscribe. Prefer over `onValueChange` when you want the same UX without lifting state.
+   */
+  subscribe: (listener: (snapshot: HeightRulerLiveSnapshot) => void) => () => void;
+};
+
 export interface HeightRulerProps {
   /** Current unit (controlled) — display only; emitted values are always cm. */
   unit: HeightUnit;
@@ -24,8 +46,6 @@ export interface HeightRulerProps {
   // Typography
   /** PostScript / family name on iOS (`UIFont(name:size:)`), Android `Typeface.create`. Bold is applied natively. */
   fontFamily?: string;
-  /** Point size for tick labels (major ticks and values under the glass). Default: 19. */
-  tickLabelFontSize?: number;
 
   // Ruler geometry
   tickSpacing?: number;
@@ -41,6 +61,13 @@ export interface HeightRulerProps {
   majorTickColor?: string;
   glassActiveTickColor?: string;
   glassActiveNeighborTickColor?: string;
+  /**
+   * **Android only** — ignored on iOS. Background fill for the center glass “pill”.
+   * When set, native label/tick contrast adjusts on Android.
+   */
+  glassPillBackgroundColor?: string;
+  /** **Android only** — pill corner radius in dp. Omitted or `0` uses the default (~16). */
+  glassPillBorderRadius?: number;
 
   /** Container style */
   style?: ViewStyle;

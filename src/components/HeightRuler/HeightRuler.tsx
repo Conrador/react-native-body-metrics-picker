@@ -1,74 +1,152 @@
-import { useCallback, useMemo, useRef } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+} from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 
-import type { HeightRulerProps } from './HeightRuler.types';
+import type { HeightRulerHandle, HeightRulerLiveSnapshot, HeightRulerProps } from './HeightRuler.types';
 import { NativeHeightRulerView } from './NativeHeightRulerView';
 import {
+  ANDROID_RULER_EXTRA_TRACK_DP,
+  IOS_RULER_EXTRA_TRACK_DP,
   DEFAULT_VERTICAL_VIEWPORT,
   LABEL_COL_WIDTH,
   LABEL_TO_TICK_GAP,
   LONG_STEP_INTERVAL,
   TICK_CELL_PADDING_LEFT,
   TICK_CELL_PADDING_RIGHT,
+  formatHeightRulerCmString,
   nativeRulerBoundsForUnit,
 } from './constants/rulerConstants';
 
 /**
- * Native ruler: `initialValue` and `onValueChange` always use **centimeters**; `unit` only affects the on-screen scale (cm vs ft/in).
+ * Native ruler: `initialValue` and events always use **centimeters**; `unit` only affects the on-screen scale (cm vs ft/in).
+ *
+ * - Read the value with **`ref`**: `getSnapshot()`, `getValueCm()`, `getValueString()` (imperative, e.g. submit).
+ * - For live UI without `onValueChange`, use **`ref.subscribe(cb)`** or **`useHeightRulerSnapshot(ref, deps)`**.
  */
-export function HeightRuler({
-  unit,
-  initialValue,
-  onValueChange,
-  verticalViewportHeight = DEFAULT_VERTICAL_VIEWPORT,
-  formatValue,
-  onScrollBegin,
-  onScrollEnd,
-  fontFamily,
-  tickLabelFontSize = 19,
-  tickSpacing = 15,
-  minorTickHeight = 18,
-  midTickHeight = 28,
-  majorTickHeight = 40,
-  tickWidth = 1.5,
-  tickColor = '#D1D5DB',
-  midTickColor = '#6B7280',
-  majorTickColor = '#374151',
-  glassActiveTickColor,
-  glassActiveNeighborTickColor,
-  style,
-}: HeightRulerProps) {
+export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(function HeightRuler(
+  {
+    unit,
+    initialValue,
+    onValueChange,
+    verticalViewportHeight = DEFAULT_VERTICAL_VIEWPORT,
+    formatValue,
+    onScrollBegin,
+    onScrollEnd,
+    fontFamily,
+    tickSpacing = 15,
+    minorTickHeight = 18,
+    midTickHeight = 28,
+    majorTickHeight = 40,
+    tickWidth = 1.5,
+    tickColor,
+    midTickColor,
+    majorTickColor,
+    glassActiveTickColor,
+    glassActiveNeighborTickColor,
+    glassPillBackgroundColor,
+    glassPillBorderRadius,
+    style,
+  },
+  ref,
+) {
   const a11yBounds = nativeRulerBoundsForUnit(unit);
 
   const rulerTrackWidth = useMemo(
     () =>
-      TICK_CELL_PADDING_LEFT +
-      LABEL_COL_WIDTH +
-      LABEL_TO_TICK_GAP +
-      majorTickHeight +
-      TICK_CELL_PADDING_RIGHT,
+      Platform.OS === 'android'
+        ? LABEL_COL_WIDTH +
+          LABEL_TO_TICK_GAP +
+          majorTickHeight +
+          ANDROID_RULER_EXTRA_TRACK_DP
+        : TICK_CELL_PADDING_LEFT +
+          LABEL_COL_WIDTH +
+          LABEL_TO_TICK_GAP +
+          majorTickHeight +
+          TICK_CELL_PADDING_RIGHT +
+          IOS_RULER_EXTRA_TRACK_DP,
     [majorTickHeight],
   );
 
   const currentValueRef = useRef(initialValue);
+  const valueStringRef = useRef(formatHeightRulerCmString(initialValue));
+  const unitRef = useRef(unit);
+  unitRef.current = unit;
+
+  const lastInitialValuePropRef = useRef(initialValue);
+  if (lastInitialValuePropRef.current !== initialValue) {
+    lastInitialValuePropRef.current = initialValue;
+    currentValueRef.current = initialValue;
+    valueStringRef.current = formatHeightRulerCmString(initialValue);
+  }
+  const nativeInitialValue = currentValueRef.current;
+
+  const listenersRef = useRef(new Set<(s: HeightRulerLiveSnapshot) => void>());
+
+  const buildSnapshot = useCallback((): HeightRulerLiveSnapshot => {
+    return {
+      valueCm: currentValueRef.current,
+      valueString: valueStringRef.current,
+      unit: unitRef.current,
+    };
+  }, []);
+
+  const notifyListeners = useCallback(() => {
+    const snapshot = buildSnapshot();
+    listenersRef.current.forEach((fn) => {
+      fn(snapshot);
+    });
+  }, [buildSnapshot]);
+
+  useEffect(() => {
+    currentValueRef.current = initialValue;
+    valueStringRef.current = formatHeightRulerCmString(initialValue);
+    notifyListeners();
+  }, [initialValue, notifyListeners]);
+
+  useEffect(() => {
+    notifyListeners();
+  }, [unit, notifyListeners]);
 
   const handleNativeValue = useCallback(
     (valueStr: string) => {
       const num = Number(valueStr);
       if (Number.isNaN(num)) return;
       currentValueRef.current = num;
+      valueStringRef.current = valueStr;
+      notifyListeners();
       onValueChange?.(valueStr);
     },
-    [onValueChange],
+    [notifyListeners, onValueChange],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getValueCm: () => currentValueRef.current,
+      getValueString: () => valueStringRef.current,
+      getSnapshot: () => buildSnapshot(),
+      subscribe: (listener: (snapshot: HeightRulerLiveSnapshot) => void) => {
+        listener(buildSnapshot());
+        listenersRef.current.add(listener);
+        return () => {
+          listenersRef.current.delete(listener);
+        };
+      },
+    }),
+    [buildSnapshot],
   );
 
   const activeTickColor =
-    glassActiveTickColor ?? (Platform.OS === 'ios' ? '#FFD60A' : '#0A84FF');
+    glassActiveTickColor ?? (Platform.OS === 'ios' ? '#FFD60A' : '');
   const activeNeighborTickColor =
     glassActiveNeighborTickColor ??
-    (Platform.OS === 'ios'
-      ? 'rgba(255, 214, 10, 0.72)'
-      : 'rgba(10, 132, 255, 0.72)');
+    (Platform.OS === 'ios' ? 'rgba(255, 214, 10, 0.72)' : '');
 
   const nativeProps = useMemo(
     () => ({
@@ -79,7 +157,7 @@ export function HeightRuler({
       step: 0,
       fractionDigits: 0,
       imperialMinInches: 0,
-      initialValue,
+      initialValue: nativeInitialValue,
       verticalViewportHeight,
       rulerTrackWidth,
       tickSpacing,
@@ -90,18 +168,29 @@ export function HeightRuler({
       labelColumnWidth: LABEL_COL_WIDTH,
       labelToTickGap: LABEL_TO_TICK_GAP,
       tickCellPaddingRight: TICK_CELL_PADDING_RIGHT,
-      tickLabelFontSize,
       fontFamily: fontFamily || undefined,
       longStepInterval: LONG_STEP_INTERVAL,
-      colorTick: tickColor,
-      colorMidTick: midTickColor,
-      colorMajorTick: majorTickColor,
+      colorTick:
+        Platform.OS === 'android' ? (tickColor ?? '') : (tickColor ?? '#D1D5DB'),
+      colorMidTick:
+        Platform.OS === 'android' ? (midTickColor ?? '') : (midTickColor ?? '#6B7280'),
+      colorMajorTick:
+        Platform.OS === 'android'
+          ? (majorTickColor ?? '')
+          : (majorTickColor ?? '#374151'),
       colorGlassActiveTick: activeTickColor,
       colorGlassActiveNeighborTick: activeNeighborTickColor,
+      // Pill styling is Android-only — do not pass these keys on iOS (native has no UI for them).
+      ...(Platform.OS === 'android'
+        ? {
+            glassPillBackgroundColor: glassPillBackgroundColor ?? '',
+            glassPillBorderRadius: glassPillBorderRadius ?? 0,
+          }
+        : {}),
     }),
     [
       unit,
-      initialValue,
+      nativeInitialValue,
       verticalViewportHeight,
       rulerTrackWidth,
       tickSpacing,
@@ -109,44 +198,67 @@ export function HeightRuler({
       midTickHeight,
       majorTickHeight,
       tickWidth,
-      tickLabelFontSize,
       fontFamily,
       tickColor,
       midTickColor,
       majorTickColor,
       activeTickColor,
       activeNeighborTickColor,
+      glassPillBackgroundColor,
+      glassPillBorderRadius,
     ],
   );
 
   return (
-    <NativeHeightRulerView
-      style={[
-        styles.base,
-        {
-          width: rulerTrackWidth,
-          height: verticalViewportHeight,
-        },
-        style,
-      ]}
-      {...nativeProps}
-      onValueChange={(e) => handleNativeValue(e.nativeEvent.value)}
-      onScrollBegin={onScrollBegin}
-      onScrollEnd={onScrollEnd}
-      accessible
-      accessibilityRole="adjustable"
-      accessibilityLabel="Height ruler, vertical"
-      accessibilityValue={{
-        min: a11yBounds.min,
-        max: a11yBounds.max,
-        now: currentValueRef.current,
-        text: formatValue ? formatValue(currentValueRef.current) : undefined,
-      }}
-    />
+    <View style={styles.host} collapsable={false}>
+      <View style={styles.wrap} collapsable={false}>
+        <NativeHeightRulerView
+          key={unit}
+          // Android: native views are often "collapsed" out of the hierarchy without a background,
+          // which yields 0×0 and an invisible Fabric view — keep this leaf mounted.
+          collapsable={false}
+          style={[
+            styles.base,
+            {
+              width: rulerTrackWidth,
+              minWidth: rulerTrackWidth,
+              height: verticalViewportHeight,
+              minHeight: verticalViewportHeight,
+              ...(Platform.OS === 'android' ? { backgroundColor: 'transparent' as const } : {}),
+            },
+            style,
+          ]}
+          {...nativeProps}
+          onValueChange={(e) => handleNativeValue(e.nativeEvent.value)}
+          onScrollBegin={onScrollBegin}
+          onScrollEnd={onScrollEnd}
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel="Height ruler, vertical"
+          accessibilityValue={{
+            min: a11yBounds.min,
+            max: a11yBounds.max,
+            now: currentValueRef.current,
+            text: formatValue ? formatValue(currentValueRef.current) : undefined,
+          }}
+        />
+      </View>
+    </View>
   );
-}
+});
+
+HeightRuler.displayName = 'HeightRuler';
 
 const styles = StyleSheet.create({
+  host: {
+    position: 'relative',
+    width: '100%',
+    alignItems: 'center',
+  },
+  wrap: {
+    overflow: 'visible',
+    alignItems: 'center',
+  },
   base: {
     overflow: 'visible',
   },
