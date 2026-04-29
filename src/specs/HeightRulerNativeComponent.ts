@@ -18,7 +18,6 @@ export interface NativeProps extends ViewProps {
   step: Double;
   fractionDigits: Int32;
   initialValue: Double;
-  verticalViewportHeight: Double;
   rulerTrackWidth: Double;
   tickSpacing: Double;
   minorTickHeight: Double;

@@ -26,6 +26,8 @@ import {
 /**
  * Native ruler: `initialValue` and events always use **centimeters**; `unit` only affects the on-screen scale (cm vs ft/in).
  *
+ * Height comes from layout only — wrap in a sized parent (`flex: 1`, fixed `height`, etc.).
+ *
  * - Read the value with **`ref`**: `getSnapshot()`, `getValueCm()`, `getValueString()` (imperative, e.g. submit).
  * - For live UI without `onValueChange`, use **`ref.subscribe(cb)`** or **`useHeightRulerSnapshot(ref, deps)`**.
  */
@@ -34,7 +36,6 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
     unit,
     initialValue,
     onValueChange,
-    verticalViewportHeight = DEFAULT_VERTICAL_VIEWPORT,
     formatValue,
     onScrollBegin,
     onScrollEnd,
@@ -158,7 +159,6 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
       fractionDigits: 0,
       imperialMinInches: 0,
       initialValue: nativeInitialValue,
-      verticalViewportHeight,
       rulerTrackWidth,
       tickSpacing,
       minorTickHeight,
@@ -191,7 +191,6 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
     [
       unit,
       nativeInitialValue,
-      verticalViewportHeight,
       rulerTrackWidth,
       tickSpacing,
       minorTickHeight,
@@ -210,23 +209,16 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
   );
 
   return (
-    <View style={styles.host} collapsable={false}>
-      <View style={styles.wrap} collapsable={false}>
+    <View
+      style={[styles.host, styles.hostFluid, style]}
+    >
+      <View style={[styles.wrap, styles.wrapFluid]}>
         <NativeHeightRulerView
           key={unit}
-          // Android: native views are often "collapsed" out of the hierarchy without a background,
-          // which yields 0×0 and an invisible Fabric view — keep this leaf mounted.
-          collapsable={false}
           style={[
-            styles.base,
-            {
-              width: rulerTrackWidth,
-              minWidth: rulerTrackWidth,
-              height: verticalViewportHeight,
-              minHeight: verticalViewportHeight,
-              ...(Platform.OS === 'android' ? { backgroundColor: 'transparent' as const } : {}),
-            },
-            style,
+            styles.nativeRuler,
+            Platform.OS === 'android' ? styles.nativeRulerAndroid : null,
+            { width: rulerTrackWidth, minWidth: rulerTrackWidth },
           ]}
           {...nativeProps}
           onValueChange={(e) => handleNativeValue(e.nativeEvent.value)}
@@ -255,11 +247,27 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
+  hostFluid: {
+    flexGrow: 1,
+    minHeight: DEFAULT_VERTICAL_VIEWPORT,
+    alignSelf: 'stretch',
+  },
   wrap: {
     overflow: 'visible',
     alignItems: 'center',
   },
-  base: {
+  wrapFluid: {
+    flex: 1,
+    width: '100%',
+    minHeight: 0,
+  },
+  nativeRuler: {
     overflow: 'visible',
+    flexGrow: 1,
+    minHeight: 0,
+    alignSelf: 'center',
+  },
+  nativeRulerAndroid: {
+    backgroundColor: 'transparent',
   },
 });

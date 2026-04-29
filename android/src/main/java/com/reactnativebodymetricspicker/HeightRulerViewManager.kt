@@ -59,12 +59,6 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
     view.setInitialValueFromJs(v)
   }
 
-  @ReactProp(name = "verticalViewportHeight")
-  fun setVerticalViewportHeight(view: HeightRulerView, v: Double) {
-    view.verticalViewportHeight = v
-    view.markNeedsReload()
-  }
-
   @ReactProp(name = "rulerTrackWidth")
   fun setRulerTrackWidth(view: HeightRulerView, v: Double) {
     view.rulerTrackWidth = v

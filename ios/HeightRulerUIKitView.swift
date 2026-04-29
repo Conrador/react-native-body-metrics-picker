@@ -291,12 +291,30 @@ private final class HeightRulerTickRowView: UIView {
       return (totalSteps - i) % model.longStepInterval == 0
     }()
 
+    /// CM: e.g. 155 — half-step between majors — reads too tall when vertically adjacent to the snapped value under the glass → use minor ink.
+    let demoteAdjacentMetricMid: Bool = {
+      guard model.unit != "ft" else { return false }
+      guard abs(i - selectedIdx) == 1 else { return false }
+      let idx = totalSteps - i
+      guard idx % model.longStepInterval != 0 else { return false }
+      let half = max(1, model.longStepInterval / 2)
+      return idx % half == 0
+    }()
+
     let (barW, baseUIColor, labelText, waveXGain, waveYGain, isAlwaysLabel): (CGFloat, UIColor, String, CGFloat, CGFloat, Bool) = {
       if model.unit == "ft" {
         let ti = model.imperialRulerMaxInches - i
         var kind = RulerTickKind.imperial(ti)
         if demoteAdjacentGridMajor {
           kind = .small
+        } else if abs(i - selectedIdx) == 1 {
+          // Half-foot / third-foot marks shrink next to the snap so the capsule keeps focus like cm mid ticks.
+          switch kind {
+          case .large, .medium:
+            kind = .small
+          default:
+            break
+          }
         }
         if promoteGlassMajor {
           kind = .major
@@ -333,6 +351,9 @@ private final class HeightRulerTickRowView: UIView {
         var isMid = !isLong && indexFromMin % half == 0
         if demoteAdjacentGridMajor {
           isLong = false
+          isMid = false
+        }
+        if demoteAdjacentMetricMid {
           isMid = false
         }
         if promoteGlassMajor {
@@ -503,6 +524,12 @@ private enum HeightRulerFixedGlassChrome {
   static let liquidBorder = "rgba(255, 255, 255, 0.78)"
 }
 
+private enum HeightRulerGlassPillMetrics {
+  /// Horizontal extra over the tick track for the glass pill (centered). Tuned for iOS capsule feel.
+  static let widthBeyondTrack: CGFloat = 22
+  static let height: CGFloat = 52
+}
+
 // MARK: - Main ruler
 
 final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollectionViewDataSource, UIGestureRecognizerDelegate {
@@ -515,7 +542,6 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
   private let collectionView: UICollectionView
   private let glassView = RulerGlassUIKitView()
 
-  private var heightConstraint: NSLayoutConstraint!
   private var displayedUnit: String = "cm"
   private var isUnitTransitionInFlight = false
   private var structureKey: String = ""
@@ -579,9 +605,7 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
     addSubview(collectionView)
     addSubview(glassView)
 
-    heightConstraint = heightAnchor.constraint(equalToConstant: 240)
     NSLayoutConstraint.activate([
-      heightConstraint,
       chromeView.topAnchor.constraint(equalTo: topAnchor),
       chromeView.leadingAnchor.constraint(equalTo: leadingAnchor),
       chromeView.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -600,10 +624,22 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
 
   override func layoutSubviews() {
     super.layoutSubviews()
+    let bh = bounds.height
+    if bh > 0, abs(Double(bh) - model.verticalViewportHeight) > 0.35 {
+      model.verticalViewportHeight = Double(bh)
+      let nk = structureKeyForModel()
+      if nk != structureKey {
+        structureKey = nk
+        rebuildTickStack()
+      } else {
+        updateFlowLayout(force: true)
+        refreshTickCells()
+      }
+    }
     updateFlowLayout(force: false)
     let trackW = bounds.width
-    let glassW = trackW + 38
-    let glassH: CGFloat = 52
+    let glassW = trackW + HeightRulerGlassPillMetrics.widthBeyondTrack
+    let glassH = HeightRulerGlassPillMetrics.height
     glassView.bounds = CGRect(x: 0, y: 0, width: glassW, height: glassH)
     glassView.center = CGPoint(x: bounds.midX, y: bounds.midY)
     updateGlassInteractionVisuals()
@@ -612,7 +648,6 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
   // MARK: - Public sync
 
   func syncWithModel() {
-    heightConstraint.constant = CGFloat(model.verticalViewportHeight)
     backgroundColor = .clear
     chromeView.backgroundColor = .clear
 
@@ -817,8 +852,8 @@ final class HeightRulerUIKitView: UIView, UICollectionViewDelegate, UICollection
 
   private func centerGlassRectInSelf() -> CGRect {
     let trackW = bounds.width
-    let glassW = trackW + 38
-    let glassH: CGFloat = 52
+    let glassW = trackW + HeightRulerGlassPillMetrics.widthBeyondTrack
+    let glassH = HeightRulerGlassPillMetrics.height
     return CGRect(
       x: bounds.midX - glassW / 2,
       y: bounds.midY - glassH / 2,

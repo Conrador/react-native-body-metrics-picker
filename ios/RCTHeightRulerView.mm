@@ -116,7 +116,6 @@ static void RNBMHeightRulerApplyNativeBounds(RNHeightRulerHostingView *host, NSS
   _rulerHost.unit = unit;
   RNBMHeightRulerApplyNativeBounds(_rulerHost, unit);
   _rulerHost.initialValue = newRulerProps.initialValue;
-  _rulerHost.verticalViewportHeight = newRulerProps.verticalViewportHeight;
   _rulerHost.rulerTrackWidth = newRulerProps.rulerTrackWidth;
   _rulerHost.tickSpacing = newRulerProps.tickSpacing;
   _rulerHost.minorTickHeight = newRulerProps.minorTickHeight;

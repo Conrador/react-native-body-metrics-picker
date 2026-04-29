@@ -111,13 +111,6 @@ public final class RNHeightRulerHostingView: UIView {
     }
   }
 
-  @objc public var verticalViewportHeight: Double = 240 {
-    didSet {
-      model.verticalViewportHeight = verticalViewportHeight
-      scheduleRulerSync()
-    }
-  }
-
   @objc public var rulerTrackWidth: Double = 120 {
     didSet {
       model.rulerTrackWidth = rulerTrackWidth

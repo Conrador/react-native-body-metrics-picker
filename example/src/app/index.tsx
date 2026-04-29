@@ -3,7 +3,7 @@ import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Fraunces_600SemiBold, Fraunces_700Bold, useFonts as useFrauncesFonts } from '@expo-google-fonts/fraunces';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from '@expo-google-fonts/outfit';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   HeightRuler,
@@ -14,7 +14,7 @@ import {
 } from 'react-native-body-metrics-picker';
 
 const DARK_CARD_BACKGROUND = '#0F172A';
-/** Same fill for card + native ruler (background + chrome) so nothing „gryzie” z tłem karty. */
+/** Same fill for card + native ruler (background + chrome) so nothing clashes with the card background. */
 const AURORA_CARD_BG = '#F5F3FF';
 
 /** Android: native `glassPillBackgroundColor` / `glassPillBorderRadius` (HeightRuler passes them only on Android). */
@@ -46,6 +46,9 @@ const HERO = {
 
 const CM_PER_FOOT = 30.48;
 
+/** Base bottom padding for home ScrollView — total = this + `SafeAreaInsets.bottom`. */
+const SCROLL_BOTTOM_PADDING_BASE = 32;
+
 /** Ruler `value` is always cm; format as ft/in for display when UI is in ft mode. */
 function formatFeetInchesFromCm(cmValue: string): string {
   const cm = Number(cmValue);
@@ -54,7 +57,10 @@ function formatFeetInchesFromCm(cmValue: string): string {
   const totalInches = Math.round(feetFloat * 12);
   const feet = Math.floor(totalInches / 12);
   const inches = totalInches % 12;
-  return `${feet}'${inches}"`;
+  /** Primes (′ ″): one glyph each — avoids stray ASCII `"` wrapping to its own line. */
+  const ftPrime = '\u2032';
+  const inDoublePrime = '\u2033';
+  return `${feet}${ftPrime}${inches}${inDoublePrime}`;
 }
 
 function formatFeetDecimalFromCm(cmValue: string): string {
@@ -179,6 +185,7 @@ export default function HomeScreen() {
   const [darkSwitcherUnit, setDarkSwitcherUnit] = useState<HeightUnit>('cm');
   const [heroUnit, setHeroUnit] = useState<HeightUnit>('cm');
 
+  const { bottom: safeBottomInset } = useSafeAreaInsets();
   const cmOnlyRulerRef = useRef<HeightRulerHandle>(null);
   const ftOnlyRulerRef = useRef<HeightRulerHandle>(null);
   const auroraRulerRef = useRef<HeightRulerHandle>(null);
@@ -217,7 +224,7 @@ export default function HomeScreen() {
       <StatusBar style="dark" />
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={{ paddingBottom: SCROLL_BOTTOM_PADDING_BASE + safeBottomInset }}
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews={false}
       >
@@ -279,9 +286,9 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ruler - cm (custom theme)</Text>
           <Text style={styles.sectionDescription}>
-            Inne kolory ticków i szkła oraz{' '}
-            <Text style={styles.inlineCode}>fontFamily</Text> — rozmiar etykiet linijki jest stały po stronie
-            natywnej (19 pt/sp); etykiety biorą kolory major/mid ticków.
+            Different tick and glass tint colors plus an optional{' '}
+            <Text style={styles.inlineCode}>fontFamily</Text> — native ruler label size is fixed (19 pt/sp);
+            labels inherit major/mid tick colors.
           </Text>
 
           <View style={[styles.rulerCard, styles.rulerCardAurora]}>
@@ -398,7 +405,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Showcase — ruler & switcher</Text>
           <Text style={styles.sectionDescription}>
-            Linijka po lewej, duża wartość Fraunces po prawej — bursztyn + morski pill.
+            Ruler on the left, large Fraunces readout on the right — amber and navy/teal capsule.
           </Text>
 
           <View style={styles.heroCard}>
@@ -429,7 +436,6 @@ export default function HomeScreen() {
                     unit={heroUnit}
                     initialValue={178}
                     fontFamily="Fraunces_600SemiBold"
-                    verticalViewportHeight={Platform.OS === 'ios' ? 340 : 320}
                     tickColor={HERO.tickMinor}
                     midTickColor={HERO.tickMid}
                     majorTickColor={HERO.tickMajor}
@@ -459,9 +465,6 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-  },
-  scroll: {
-    paddingBottom: 32,
   },
   title: {
     fontSize: 28,
@@ -502,7 +505,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 3,
-    paddingVertical: 10,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   rulerCardDark: {
@@ -531,6 +534,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+    minHeight: 280,
   },
   debugContainer: {
     marginTop: 12,
@@ -565,8 +569,8 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: HERO.cardBg,
     borderRadius: 28,
-    paddingTop: 26,
-    paddingBottom: 8,
+    paddingTop: 28,
+    paddingBottom: 12,
     borderWidth: 1,
     borderColor: HERO.cardBorder,
     shadowColor: '#fbbf24',
@@ -609,14 +613,14 @@ const styles = StyleSheet.create({
   },
   heroValueColumn: {
     width: '100%',
-    maxWidth: 220,
+    maxWidth: 244,
     alignItems: 'flex-end',
   },
   heroValueMain: {
     fontFamily: 'Fraunces_700Bold',
-    fontSize: 68,
-    lineHeight: 68,
-    letterSpacing: -2.2,
+    fontSize: 54,
+    lineHeight: 54,
+    letterSpacing: -2,
     color: HERO.gold,
     textAlign: 'right',
     ...Platform.select({
@@ -624,9 +628,9 @@ const styles = StyleSheet.create({
     }),
   },
   heroValueMainFt: {
-    fontSize: 62,
-    lineHeight: 64,
-    letterSpacing: -1.8,
+    fontSize: 48,
+    lineHeight: 50,
+    letterSpacing: -1.45,
   },
   heroValueUnit: {
     fontFamily: 'Outfit_500Medium',
@@ -656,6 +660,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.12)',
     overflow: 'visible',
+    minHeight: 292,
   },
   heroRulerTrackWrap: {
     paddingHorizontal: 18,

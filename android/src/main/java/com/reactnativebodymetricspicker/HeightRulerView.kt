@@ -40,14 +40,11 @@ import java.util.Locale
  */
 private const val PILL_BACKGROUND_HEIGHT_SCALE = 0.90f
 
-/** Minimum ink multiplier at the pill cap for tick bars (subtle). */
-private const val PILL_CAP_EDGE_TICK_MIN = 0.34f
+/** Minimum multiplier at capsule top/bottom seam — shared by tick ink and centered value labels (soft edge → full inside). */
+private const val PILL_CAP_EDGE_MIN = 0.1f
 
-/** Deeper fade for value labels so numbers read softer right at the glass edge, then full inside/outside. */
-private const val PILL_CAP_EDGE_LABEL_MIN = 0.1f
-
-/** Wider transition band for labels vs ticks (same smoothstep shape). */
-private const val PILL_CAP_EDGE_LABEL_BAND_SCALE = 1.35f
+/** Widens seam ease band toward the capsule (smoothstep ramp — same for ticks and labels). */
+private const val PILL_CAP_EDGE_BAND_SCALE = 1.35f
 
 /** Match [HeightRulerUIKitView] `waveStrength` for bar scale. */
 private const val TICK_WAVE_STRENGTH = 1.32f
@@ -191,7 +188,6 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   var step = 1.0
   var fractionDigits = 0
   var initialValue = 175.0
-  var verticalViewportHeight = 240.0
   var rulerTrackWidth = 120.0
   var tickSpacing = 15.0
   var minorTickHeight = 18.0
@@ -243,6 +239,8 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   private var lastMajorHapticScrollIndex: Int? = null
   private var suppressMajorTickHaptic = false
   private var lastEmittedValue: String? = null
+  /** Last laid-out height — when it changes, [rebuild] recenters padding. */
+  private var lastSyncedLayoutHeightPx = -1
 
   private var cTick = Color.GRAY
   private var cMid = Color.GRAY
@@ -374,9 +372,10 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     // At least label + gap + major, plus horizontal headroom for tick wave/nudges and pill stroke/AA.
     // Yoga often passes EXACT width from JS — drawing is still clamped to [measuredWidth] when smaller.
     val minW = computeHorizontalMinWidthPx().coerceAtLeast(1)
-    val vh = if (verticalViewportHeight > 0) verticalViewportHeight else 240.0
-    val minH = dp(vh).toInt().coerceAtLeast(1)
-    setMeasuredDimension(resolveSize(minW, widthMeasureSpec), resolveSize(minH, heightMeasureSpec))
+    val intrinsicMinH = dp(240.0).toInt().coerceAtLeast(1)
+    val w = resolveSize(minW, widthMeasureSpec)
+    val h = resolveSize(intrinsicMinH, heightMeasureSpec)
+    setMeasuredDimension(w, h)
     val childWidth = MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY)
     val childHeight = MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
     val oPx = max(0, round(pillHorizontalOutsetPx).toInt())
@@ -386,8 +385,12 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   }
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+    val layoutH = bottom - top
     if (needsReload) {
       rebuild()
+    } else if (layoutH > 0 && abs(layoutH - lastSyncedLayoutHeightPx) > 2) {
+      markNeedsReload()
+      return
     }
     val oPx = max(0, round(pillHorizontalOutsetPx).toInt())
     pillView.layout(-oPx, 0, width + oPx, height)
@@ -531,6 +534,9 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
       } else if (didUnitSwitch) {
         recyclerView.postOnAnimation { applyAnchor() }
       }
+    }
+    if (height > 0) {
+      lastSyncedLayoutHeightPx = height
     }
   }
 
@@ -869,7 +875,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
    * when leaving toward the grid.
    *
    * @param minAtEdge lowest multiplier at the cap seam (deeper = stronger fade).
-   * @param bandScale multiplies the outer blend band width (labels use a value above 1 for a longer ease).
+   * @param bandScale multiplies the outer blend band width (longer ease into the capsule).
    */
   private fun pillCapCrossfadeMultiplier(
     row: View,
@@ -931,13 +937,11 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   private fun drawTickRow(canvas: Canvas, i: Int, centerY: Float, row: View) {
     if (i < 0 || i > totalSteps) return
     if (skipTickRowDrawingInPillBand(i, row)) return
-    val capFadeTick =
-      pillCapCrossfadeMultiplier(row, PILL_CAP_EDGE_TICK_MIN, bandScale = 1f)
-    val capFadeLabel =
+    val pillCapsuleEdgeFade =
       pillCapCrossfadeMultiplier(
         row,
-        PILL_CAP_EDGE_LABEL_MIN,
-        bandScale = PILL_CAP_EDGE_LABEL_BAND_SCALE,
+        PILL_CAP_EDGE_MIN,
+        bandScale = PILL_CAP_EDGE_BAND_SCALE,
       )
 
     val dist = abs(i.toFloat() - centerPosition)
@@ -1048,7 +1052,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
         centerY + (tickThicknessPx * scaleY / 2f),
       )
     clampTickBarRectToRow(rect, row.width.toFloat())
-    val tickAlpha = ((highlighted ushr 24) and 0xFF) * capFadeTick
+    val tickAlpha = ((highlighted ushr 24) and 0xFF) * pillCapsuleEdgeFade
     barPaint.color = ColorUtils.setAlphaComponent(highlighted, tickAlpha.toInt().coerceIn(0, 255))
     canvas.drawRoundRect(rect, rect.height() / 2f, rect.height() / 2f, barPaint)
 
@@ -1080,7 +1084,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
       textPaint.color =
         ColorUtils.setAlphaComponent(
           inkBase,
-          (255f * labelAlpha * capFadeLabel).toInt().coerceIn(0, 255),
+          (255f * labelAlpha * pillCapsuleEdgeFade).toInt().coerceIn(0, 255),
         )
       textPaint.textSize = baseTextSizePx * labelScale
       val fm = textPaint.fontMetrics

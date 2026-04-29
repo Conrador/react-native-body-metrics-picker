@@ -37,8 +37,6 @@ export interface HeightRulerProps {
   onValueChange?: (value: string) => void;
 
   // ── Rendering ──────────────────────────────────────────────────────
-  /** Visible height of the vertical ruler viewport. Default: 240. */
-  verticalViewportHeight?: number;
   formatValue?: (value: number) => string;
   onScrollBegin?: () => void;
   onScrollEnd?: () => void;

@@ -58,9 +58,9 @@ Pass `onUnitChange` to show the built-in `cm / ft` switcher. The ruler converts 
 
 You can override `min`, `max`, `step`, `fractionDigits` for `cm`. The built-in `ft` scale is inch-based.
 
-### Viewport
+### Layout
 
-`verticalViewportHeight` (default **240**) sets the visible ruler band height.
+The ruler’s **height** comes from the parent: use `style={{ flex: 1 }}` on a parent with bounded height, or wrap in a `View` with an explicit `height`. The root applies a **minimum** height (240 dp) so the control stays usable in scroll views.
 
 ### Conversion helpers
 
