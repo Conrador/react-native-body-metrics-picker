@@ -104,12 +104,6 @@ UX:
 
 ---
 
-### 🔹 HeightPicker (removed)
-
-Previously a bottom-sheet wrapper; removed to focus on native `HeightRuler` and simpler dependencies. Rebuild as app-level UI if needed.
-
----
-
 ## 🔄 Unit Conversion (CRITICAL)
 
 Implement:

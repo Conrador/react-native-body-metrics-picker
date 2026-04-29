@@ -1,6 +1,6 @@
 # react-native-body-metrics-picker
 
-React Native **native** vertical height ruler (**Fabric** on both platforms) plus an optional **`UnitSwitcher`** (JavaScript / Reanimated) for cm ⇄ ft. **Height picker** UX is centred on **`HeightRuler`** — there is no separate “HeightPicker” component name; use `HeightRuler` from this package.
+React Native **native** vertical height ruler (**Fabric** on both platforms) plus an optional **`UnitSwitcher`** (JavaScript / Reanimated) for cm ⇄ ft. Use **`HeightRuler`** for the ruler UI; compose it with your own chrome or **`UnitSwitcher`** as needed.
 
 ## Features
 
