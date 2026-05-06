@@ -24,15 +24,32 @@ See **`example/src/app/index.tsx`** for **New Architecture** ruler demos and her
 
 ### Demo recordings
 
-Still frames are **clickable** posters (open the full recording in the browser): **[Android MP4](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4)** · **[iOS MP4](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4)**. Hosted from **`raw.githubusercontent.com`** so they render on npm as well ([`docs/`](docs/)).
+Still frames are **clickable** (open the **MP4** in the browser): **[Android](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4)** · **[iOS](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4)**. Hosted from **`raw.githubusercontent.com`** so they render on npm too ([`docs/`](docs/)). Posters are side by side below: **Android** is **360 px** wide, **iOS** **280 px** (aspect ratio preserved).
 
-**Android**
-
-[![Android example recording](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-poster.jpg)](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4)
-
-**iOS**
-
-[![iOS example recording](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-poster.png)](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4)
+<table>
+  <tr>
+    <td align="center" width="50%"><strong>Android</strong></td>
+    <td align="center" width="50%"><strong>iOS</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4"
+        ><img
+          src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-poster.jpg"
+          width="360"
+          alt="Android example recording"
+      /></a>
+    </td>
+    <td align="center">
+      <a href="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4"
+        ><img
+          src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-poster.png"
+          width="300"
+          alt="iOS example recording"
+      /></a>
+    </td>
+  </tr>
+</table>
 
 ---
 
