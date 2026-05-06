@@ -4,11 +4,11 @@ React Native **native** vertical height ruler (**Fabric** on both platforms) plu
 
 ## Features
 
-- **`HeightRuler`** — Fabric `UIView` / Android custom view with snap scrolling, glass “pill”, haptics-oriented behaviour  
-- **`UnitSwitcher`** — segmented control styling (thumb spring, drag) powered by **`react-native-reanimated`** — keep it beside the ruler when you want unit switching  
-- Values from the ruler are **`onValueChange` centimetre decimal strings**; `unit` on `HeightRuler` only affects **display** scaling (cm vs ft/in labels)  
-- Imperative **`ref`** API: `getSnapshot()`, `getValueCm()`, **`subscribe()`**, plus **`useHeightRulerSnapshot()`** for reactive readouts  
-- TypeScript typings for exported components  
+- **`HeightRuler`** — Fabric `UIView` / Android custom view with snap scrolling, glass “pill”, haptics-oriented behaviour
+- **`UnitSwitcher`** — segmented control styling (thumb spring, drag) powered by **`react-native-reanimated`** — keep it beside the ruler when you want unit switching
+- Values from the ruler are **`onValueChange` centimetre decimal strings**; `unit` on `HeightRuler` only affects **display** scaling (cm vs ft/in labels)
+- Imperative **`ref`** API: `getSnapshot()`, `getValueCm()`, **`subscribe()`**, plus **`useHeightRulerSnapshot()`** for reactive readouts
+- TypeScript typings for exported components
 - Accessible labels (snap position uses native a11y value ranges)
 
 ### Not in scope (yet)
@@ -17,10 +17,10 @@ React Native **native** vertical height ruler (**Fabric** on both platforms) plu
 
 ## Peer dependencies
 
-| Package | Notes |
-|---------|------|
-| `react` | `>= 18` |
-| `react-native` | New Architecture / Fabric assumed for the ruler (tested against `>= 0.74`) |
+| Package                   | Notes                                                                                                                                                                                                                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `react`                   | `>= 18`                                                                                                                                                                                                                            |
+| `react-native`            | New Architecture / Fabric assumed for the ruler (tested against `>= 0.74`)                                                                                                                                                         |
 | `react-native-reanimated` | **`UnitSwitcher`** only. If you use **only `HeightRuler`** and build your own switcher, Reanimated must still satisfy the peer constraint unless you duplicate the dependency workaround (recommended: declare Reanimated anyway). |
 
 ## Installation
@@ -38,6 +38,8 @@ npm install @your-scope/react-native-body-metrics-picker
 ```
 
 Then **iOS**: `pod install` in `ios/` (Codegen picks up specs from `node_modules`). **Android**: Gradle autolinking + New Architecture alignment with your app.
+
+**Minimum iOS:** the pod declares **`IPHONEOS_DEPLOYMENT_TARGET` 15.1**. Your Expo `Podfile.properties.json` **`ios.deploymentTarget`** (or Xcode project) must be **≥ 15.1** — otherwise CocoaPods reports that the pod “requires a higher minimum deployment target”.
 
 ---
 
@@ -85,22 +87,69 @@ Give the **`View` wrapping `HeightRuler` a real height** (or `flex: 1` under a b
 
 ---
 
+## API reference
+
+### `HeightRuler` props
+
+Fabric native view on **both** platforms. **Android-only** props are omitted on iOS by the JS wrapper (Fabric does not receive them).
+
+| Prop                           | Type                      | Default                                   | iOS         | Android | Description                                                                                                             |
+| ------------------------------ | ------------------------- | ----------------------------------------- | ----------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `unit`                         | `'cm' \| 'ft'`            | (required)                                | Yes         | Yes     | Display scale for labels and ticks; emitted values stay **cm**.                                                         |
+| `initialValue`                 | `number`                  | (required)                                | Yes         | Yes     | Centimetres; initial scroll position (not continuously synced from props).                                              |
+| `onValueChange`                | `(value: string) => void` | —                                         | Yes         | Yes     | Cm as decimal string (e.g. `"175.00"`).                                                                                 |
+| `formatValue`                  | `(cm: number) => string`  | —                                         | Yes         | Yes     | Feeds optional **accessibility** announced value.                                                                       |
+| `onScrollBegin`                | `() => void`              | —                                         | Yes         | Yes     |                                                                                                                         |
+| `onScrollEnd`                  | `() => void`              | —                                         | Yes         | Yes     |                                                                                                                         |
+| `fontFamily`                   | `string`                  | —                                         | Yes         | Yes     | iOS: PostScript name; Android: `Typeface.create`.                                                                       |
+| `tickSpacing`                  | `number`                  | `15`                                      | Yes         | Yes     |                                                                                                                         |
+| `minorTickHeight`              | `number`                  | `18`                                      | Yes         | Yes     |                                                                                                                         |
+| `midTickHeight`                | `number`                  | `28`                                      | Yes         | Yes     |                                                                                                                         |
+| `majorTickHeight`              | `number`                  | `40`                                      | Yes         | Yes     |                                                                                                                         |
+| `tickWidth`                    | `number`                  | `1.5`                                     | Yes         | Yes     |                                                                                                                         |
+| `tickColor`                    | `string`                  | iOS `#D1D5DB`; Android `''`               | Yes         | Yes     | Android **empty** ⇒ theme tertiary.                                                                                     |
+| `midTickColor`                 | `string`                  | iOS `#6B7280`; Android `''`               | Yes         | Yes     | Android **empty** ⇒ theme secondary.                                                                                    |
+| `majorTickColor`               | `string`                  | iOS `#374151`; Android `''`               | Yes         | Yes     | Android **empty** ⇒ `textColorPrimary`; blends into label ink.                                                          |
+| `glassActiveTickColor`         | `string`                  | iOS `#FFD60A`; Android `''`               | Yes         | Yes     | Android **empty** ⇒ `colorPrimary`.                                                                                     |
+| `glassActiveNeighborTickColor` | `string`                  | iOS `rgba(255,214,10,0.72)`; Android `''` | Yes         | Yes     | Android **empty** ⇒ derived from primary.                                                                               |
+| `glassCenterLabelColor`        | `string`                  | `''`                                      | Yes         | Yes     | Snapped value under the glass; `#`, `rgb()`, `rgba()`. **Empty** ⇒ blend from major/mid (and pill contrast on Android). |
+| `glassPillBackgroundColor`     | `string`                  | —                                         | **Ignored** | **Yes** | Pill fill behind ticks.                                                                                                 |
+| `glassPillBorderRadius`        | `number`                  | —                                         | **Ignored** | **Yes** | Corner radius **dp**; `0` uses native default (~16).                                                                    |
+| `style`                        | `ViewStyle`               | —                                         | Yes         | Yes     | Applied to the outer **JS** `View` around the native ruler.                                                             |
+
+Colour strings are parsed natively: **`#RGB` / `#RRGGBB` / `#RRGGBBAA`**, **`rgb()`**, **`rgba()`** (unsupported forms fall back to a neutral grey).
+
+The wrapper also passes codegen-only fields (`rangeMin`, `rangeMax`, `step`, …) for Fabric; **native code ignores them** and clamps the band to **100–250 cm**.
+
+### `UnitSwitcher` props
+
+Implemented in **JavaScript** with **Reanimated**; usable on **iOS and Android**.
+
+| Prop                    | Type                   | Default                                          |
+| ----------------------- | ---------------------- | ------------------------------------------------ |
+| `unit`                  | `'cm' \| 'ft'`         | (required)                                       |
+| `onUnitChange`          | `(unit) => void`       | —                                                |
+| `trackColor`            | `string`               | Android `#E8EAED`, iOS `#F3F4F6`                 |
+| `thumbColor`            | `string`               | `#FFFFFF`                                        |
+| `activeTextColor`       | `string`               | Android `#1C1B1F`, iOS `#111827`                 |
+| `inactiveTextColor`     | `string`               | Android `#49454F`, iOS `#6B7280`                 |
+| `thumbSheenColor`       | `string`               | `#FFFFFF`                                        |
+| `thumbGlassBorderColor` | `string`               | Android `transparent`, iOS `rgba(60,60,67,0.16)` |
+| `fontFamily`            | `string`               | —                                                |
+| `labelFontSize`         | `number`               | `16`                                             |
+| `style`                 | `StyleProp<ViewStyle>` | —                                                |
+
+---
+
 ## Behaviour & defaults
 
 ### Native range (canonical)
 
-Internally both platforms constrain height to **`100 cm` … `250 cm`** (JS `rangeMin` / `rangeMax` props exist mainly for codegen but **native clamps to this ruler band**).
+Internally both platforms constrain height to **`100 cm` … `250 cm`**. The `rangeMin` / `rangeMax` values on the native component exist for **codegen** only.
 
 ### Layout
 
-Height is driven by **parent layout**, not by a viewport prop: wrap in sized container / flex.
-
-### Colour & geometry APIs
-
-Colours and tick sizing are **flat props** on `HeightRuler` (`tickColor`, `majorTickHeight`, `glassActiveTickColor`, …).  
-**Android only:** `glassPillBackgroundColor`, `glassPillBorderRadius` (pill fill behind ticks). **iOS** uses system materials for the capsule.
-
-There is **no** consolidated `theme={{…}}` prop — style the ruler through the props documented in `HeightRuler.types.ts`.
+Height is driven by **parent layout**, not by a viewport prop: wrap in a sized container / flex.
 
 ### Conversion / formatting helpers
 
@@ -127,6 +176,14 @@ yarn start
 ```
 
 See **`example/src/app/index.tsx`** for Fabric demos and hero layout.
+
+---
+
+## iOS build notes
+
+If Xcode fails compiling **`RCTHeightRulerView.mm`** with **`react/utils/fnf1a.h`** or **`folly/dynamic.h` file not found**, the CocoaPods target was missing RN’s bundled **Folly/ReactNativeDependencies** headers. This library’s **`install_modules_dependencies(s)`** (from **`react_native_pods.rb`**) aligns the pod with the same Fabric/Folly toolchain as codegen. After updating the podspec, **`pod install`** and a clean build.
+
+If you fork the podspec, **avoid** declaring only **`React-Core` + `React-RCTFabric`** by hand — you still need folly paths (see RN’s **`install_modules_dependencies`**).
 
 ---
 

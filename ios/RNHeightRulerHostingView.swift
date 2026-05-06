@@ -229,4 +229,11 @@ public final class RNHeightRulerHostingView: UIView {
       scheduleRulerSync()
     }
   }
+
+  @objc public var colorGlassCenterLabel: String = "" {
+    didSet {
+      model.colorGlassCenterLabel = colorGlassCenterLabel
+      scheduleRulerSync()
+    }
+  }
 }

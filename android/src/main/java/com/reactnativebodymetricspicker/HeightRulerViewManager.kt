@@ -161,6 +161,12 @@ class HeightRulerViewManager : SimpleViewManager<HeightRulerView>() {
     view.markNeedsReload()
   }
 
+  @ReactProp(name = "colorGlassCenterLabel")
+  fun setColorGlassCenterLabel(view: HeightRulerView, v: String?) {
+    view.colorGlassCenterLabel = v?.trim().orEmpty()
+    view.markNeedsReload()
+  }
+
   @ReactProp(name = "glassPillBackgroundColor")
   fun setGlassPillBackgroundColor(view: HeightRulerView, v: String?) {
     view.glassPillBackgroundColor = v?.trim()?.takeIf { it.isNotEmpty() }

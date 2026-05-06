@@ -9,7 +9,7 @@
   "source": "src/index.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/user/react-native-body-metrics-picker"
+    "url": "https://github.com/conrador/react-native-body-metrics-picker"
   },
   "license": "MIT",
   "author": "",

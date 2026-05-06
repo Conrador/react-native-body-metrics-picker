@@ -41,6 +41,7 @@ final class RulerStateModel {
   var colorMajorTick: String = "#374151"
   var colorGlassActiveTick: String = "#FFD60A"
   var colorGlassActiveNeighborTick: String = "rgba(255, 214, 10, 0.72)"
+  var colorGlassCenterLabel: String = ""
 
   /// Center tick index (0...totalSteps), updated by the native ruler.
   var centerIndex: Int = 0

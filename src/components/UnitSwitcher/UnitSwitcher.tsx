@@ -17,7 +17,6 @@ const thumbPressScaleRange =
 const thumbPressScaleYRange =
   Platform.OS === 'android' ? ([1, 0.985] as const) : ([1, 0.97] as const);
 
-/** M3-style motion: slightly tighter than the iOS spring. */
 const springConfig = Platform.select({
   android: { damping: 22, stiffness: 260, mass: 0.62 },
   default: { damping: 16, stiffness: 180, mass: 0.8 },
@@ -50,7 +49,10 @@ export function UnitSwitcher({
   activeTextColor = Platform.select({ android: '#1C1B1F', default: '#111827' }),
   inactiveTextColor = Platform.select({ android: '#49454F', default: '#6B7280' }),
   thumbSheenColor = '#FFFFFF',
-  thumbGlassBorderColor = Platform.select({ android: 'transparent', default: 'rgba(60, 60, 67, 0.16)' }),
+  thumbGlassBorderColor = Platform.select({
+    android: 'transparent',
+    default: 'rgba(60, 60, 67, 0.16)',
+  }),
   fontFamily,
   labelFontSize = 16,
   style,
@@ -137,16 +139,7 @@ export function UnitSwitcher({
           settleThumb(unit);
         },
       }),
-    [
-      dragStartX,
-      isDragging,
-      optionWidth,
-      pressMotion,
-      settleThumb,
-      tapThreshold,
-      thumbX,
-      unit,
-    ],
+    [dragStartX, isDragging, optionWidth, pressMotion, settleThumb, tapThreshold, thumbX, unit],
   );
 
   return (
@@ -180,11 +173,7 @@ export function UnitSwitcher({
       >
         {!isAndroid ? (
           <Animated.View
-            style={[
-              styles.thumbSheen,
-              { backgroundColor: thumbSheenColor },
-              thumbSheenStyle,
-            ]}
+            style={[styles.thumbSheen, { backgroundColor: thumbSheenColor }, thumbSheenStyle]}
           />
         ) : null}
       </Animated.View>
@@ -229,7 +218,6 @@ const styles = StyleSheet.create({
   },
   baseAndroid: {
     height: 40,
-    // M3-style corners: smaller than full pill (iOS), closer to platform segmented controls.
     borderRadius: 12,
   },
   thumb: {

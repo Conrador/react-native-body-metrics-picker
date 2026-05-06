@@ -8,7 +8,11 @@
 #import <react/renderer/components/RNBodyMetricsPickerSpec/Props.h>
 #import <react/renderer/components/RNBodyMetricsPickerSpec/ShadowNodes.h>
 
+#if __has_include(<RNBodyMetricsPicker/RNBodyMetricsPicker-Swift.h>)
+#import <RNBodyMetricsPicker/RNBodyMetricsPicker-Swift.h>
+#else
 #import "RNBodyMetricsPicker-Swift.h"
+#endif
 
 #import <math.h>
 
@@ -132,6 +136,7 @@ static void RNBMHeightRulerApplyNativeBounds(RNHeightRulerHostingView *host, NSS
   _rulerHost.colorMajorTick = RNBMNSString(newRulerProps.colorMajorTick);
   _rulerHost.colorGlassActiveTick = RNBMNSString(newRulerProps.colorGlassActiveTick);
   _rulerHost.colorGlassActiveNeighborTick = RNBMNSString(newRulerProps.colorGlassActiveNeighborTick);
+  _rulerHost.colorGlassCenterLabel = RNBMNSString(newRulerProps.colorGlassCenterLabel);
 
   [super updateProps:props oldProps:oldProps];
 }

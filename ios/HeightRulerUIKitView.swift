@@ -389,7 +389,12 @@ private final class HeightRulerTickRowView: UIView {
       : labelOpacityRaw * glassLabelPresence
     let majorLabelUIColor = UIColor.rulerParse(model.colorMajorTick)
     let dimLabelUIColor = UIColor.rulerParse(model.colorMidTick)
-    let labelUIColor = majorLabelUIColor.rulerLerp(to: dimLabelUIColor, t: min(1, labelNeighborGlow * 0.82))
+    var labelUIColor = majorLabelUIColor.rulerLerp(to: dimLabelUIColor, t: min(1, labelNeighborGlow * 0.82))
+    let labelCenterTrimmed = model.colorGlassCenterLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !labelCenterTrimmed.isEmpty {
+      let accentInk = UIColor.rulerParse(labelCenterTrimmed)
+      labelUIColor = labelUIColor.rulerLerp(to: accentInk, t: labelCenterGlow)
+    }
     let highlightedUIColor = baseUIColor
       .rulerLerp(to: neighborHighlight, t: neighborBlend)
       .rulerLerp(to: centerHighlight, t: centerBlend)

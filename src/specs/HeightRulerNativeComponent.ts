@@ -1,14 +1,10 @@
 import type { ViewProps } from 'react-native';
-import type {
-  DirectEventHandler,
-  Double,
-  Int32,
-} from 'react-native/Libraries/Types/CodegenTypes';
+import type { DirectEventHandler, Double, Int32 } from 'react-native/Libraries/Types/CodegenTypes';
 import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
 
 type ValueChangeEvent = Readonly<{ value: string }>;
 
-/** Empty payload for scroll begin/end — must be a plain object type for codegen. */
+// Fabric codegen: event payload cannot be `{}` — use named empty shape.
 interface EmptyScrollEvent {}
 
 export interface NativeProps extends ViewProps {
@@ -35,14 +31,10 @@ export interface NativeProps extends ViewProps {
   colorMajorTick: string;
   colorGlassActiveTick: string;
   colorGlassActiveNeighborTick: string;
-  /**
-   * Android-only (omit on iOS). Solid/tinted pill behind ticks; empty = default frosted white.
-   * Set from JS only when `Platform.OS === 'android'`.
-   */
+  colorGlassCenterLabel?: string | null;
+  /** Android-only; omit on iOS wrapper. Empty = default pill tint. */
   glassPillBackgroundColor?: string | null;
-  /**
-   * Android-only (omit on iOS). Corner radius in dp; `0` = default (~16dp). Capped by half pill height.
-   */
+  /** Android-only; omit on iOS. `0` = default (~16dp). */
   glassPillBorderRadius?: Double;
   onValueChange?: DirectEventHandler<ValueChangeEvent> | null;
   onScrollBegin?: DirectEventHandler<EmptyScrollEvent> | null;

@@ -8,11 +8,7 @@ const placeholderSnapshot = (): HeightRulerLiveSnapshot => ({
   unit: 'cm',
 });
 
-/**
- * Keeps React state in sync with the native ruler via `ref.subscribe` — no JSX children on the ruler,
- * no `onValueChange` / parent state. When `<HeightRuler key={…} />` remounts, pass the same value as
- * **`syncKey`** so subscription re-attaches to the new handle.
- */
+/** Subscribes to `ref`; pass `syncKey` when remounting the ruler with `key` so the subscription rebinds. */
 export function useHeightRulerSnapshot(
   rulerRef: RefObject<HeightRulerHandle | null>,
   syncKey?: unknown,

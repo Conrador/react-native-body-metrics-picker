@@ -30,10 +30,7 @@ extension UIColor {
          let gf = Double(parts[1]),
          let bf = Double(parts[2]),
          let af = Double(parts[3]) {
-        var r = CGFloat(rf)
-        var g = CGFloat(gf)
-        var b = CGFloat(bf)
-        var a = CGFloat(af)
+        var r = CGFloat(rf), g = CGFloat(gf), b = CGFloat(bf), a = CGFloat(af)
         if r > 1 { r /= 255 }
         if g > 1 { g /= 255 }
         if b > 1 { b /= 255 }
@@ -43,6 +40,25 @@ extension UIColor {
           green: min(1, max(0, g)),
           blue: min(1, max(0, b)),
           alpha: min(1, max(0, a)),
+        )
+      }
+    }
+    if s.hasPrefix("rgb("), s.hasSuffix(")") {
+      let inner = s.dropFirst(4).dropLast()
+      let parts = inner.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+      if parts.count >= 3,
+         let rf = Double(parts[0]),
+         let gf = Double(parts[1]),
+         let bf = Double(parts[2]) {
+        var r = CGFloat(rf), g = CGFloat(gf), b = CGFloat(bf)
+        if r > 1 { r /= 255 }
+        if g > 1 { g /= 255 }
+        if b > 1 { b /= 255 }
+        return UIColor(
+          red: min(1, max(0, r)),
+          green: min(1, max(0, g)),
+          blue: min(1, max(0, b)),
+          alpha: 1,
         )
       }
     }

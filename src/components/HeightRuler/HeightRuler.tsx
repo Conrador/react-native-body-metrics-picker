@@ -1,14 +1,11 @@
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-} from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
-import type { HeightRulerHandle, HeightRulerLiveSnapshot, HeightRulerProps } from './HeightRuler.types';
+import type {
+  HeightRulerHandle,
+  HeightRulerLiveSnapshot,
+  HeightRulerProps,
+} from './HeightRuler.types';
 import { NativeHeightRulerView } from './NativeHeightRulerView';
 import {
   ANDROID_RULER_EXTRA_TRACK_DP,
@@ -20,17 +17,11 @@ import {
   TICK_CELL_PADDING_LEFT,
   TICK_CELL_PADDING_RIGHT,
   formatHeightRulerCmString,
-  nativeRulerBoundsForUnit,
+  NATIVE_RULER_CM_MAX,
+  NATIVE_RULER_CM_MIN,
 } from './constants/rulerConstants';
 
-/**
- * Native ruler: `initialValue` and events always use **centimeters**; `unit` only affects the on-screen scale (cm vs ft/in).
- *
- * Height comes from layout only — wrap in a sized parent (`flex: 1`, fixed `height`, etc.).
- *
- * - Read the value with **`ref`**: `getSnapshot()`, `getValueCm()`, `getValueString()` (imperative, e.g. submit).
- * - For live UI without `onValueChange`, use **`ref.subscribe(cb)`** or **`useHeightRulerSnapshot(ref, deps)`**.
- */
+/** Native vertical ruler; values are cm, `unit` only changes labels. Sized by parent layout. */
 export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(function HeightRuler(
   {
     unit,
@@ -50,21 +41,17 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
     majorTickColor,
     glassActiveTickColor,
     glassActiveNeighborTickColor,
+    glassCenterLabelColor,
     glassPillBackgroundColor,
     glassPillBorderRadius,
     style,
   },
   ref,
 ) {
-  const a11yBounds = nativeRulerBoundsForUnit(unit);
-
   const rulerTrackWidth = useMemo(
     () =>
       Platform.OS === 'android'
-        ? LABEL_COL_WIDTH +
-          LABEL_TO_TICK_GAP +
-          majorTickHeight +
-          ANDROID_RULER_EXTRA_TRACK_DP
+        ? LABEL_COL_WIDTH + LABEL_TO_TICK_GAP + majorTickHeight + ANDROID_RULER_EXTRA_TRACK_DP
         : TICK_CELL_PADDING_LEFT +
           LABEL_COL_WIDTH +
           LABEL_TO_TICK_GAP +
@@ -143,16 +130,13 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
     [buildSnapshot],
   );
 
-  const activeTickColor =
-    glassActiveTickColor ?? (Platform.OS === 'ios' ? '#FFD60A' : '');
+  const activeTickColor = glassActiveTickColor ?? (Platform.OS === 'ios' ? '#FFD60A' : '');
   const activeNeighborTickColor =
-    glassActiveNeighborTickColor ??
-    (Platform.OS === 'ios' ? 'rgba(255, 214, 10, 0.72)' : '');
+    glassActiveNeighborTickColor ?? (Platform.OS === 'ios' ? 'rgba(255, 214, 10, 0.72)' : '');
 
   const nativeProps = useMemo(
     () => ({
       unit,
-      // Fabric still requires these props; native iOS/Android ignore them and use fixed bounds.
       rangeMin: 0,
       rangeMax: 0,
       step: 0,
@@ -170,17 +154,13 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
       tickCellPaddingRight: TICK_CELL_PADDING_RIGHT,
       fontFamily: fontFamily || undefined,
       longStepInterval: LONG_STEP_INTERVAL,
-      colorTick:
-        Platform.OS === 'android' ? (tickColor ?? '') : (tickColor ?? '#D1D5DB'),
-      colorMidTick:
-        Platform.OS === 'android' ? (midTickColor ?? '') : (midTickColor ?? '#6B7280'),
+      colorTick: Platform.OS === 'android' ? (tickColor ?? '') : (tickColor ?? '#D1D5DB'),
+      colorMidTick: Platform.OS === 'android' ? (midTickColor ?? '') : (midTickColor ?? '#6B7280'),
       colorMajorTick:
-        Platform.OS === 'android'
-          ? (majorTickColor ?? '')
-          : (majorTickColor ?? '#374151'),
+        Platform.OS === 'android' ? (majorTickColor ?? '') : (majorTickColor ?? '#374151'),
       colorGlassActiveTick: activeTickColor,
       colorGlassActiveNeighborTick: activeNeighborTickColor,
-      // Pill styling is Android-only — do not pass these keys on iOS (native has no UI for them).
+      colorGlassCenterLabel: glassCenterLabelColor?.trim() ? glassCenterLabelColor.trim() : '',
       ...(Platform.OS === 'android'
         ? {
             glassPillBackgroundColor: glassPillBackgroundColor ?? '',
@@ -203,15 +183,14 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
       majorTickColor,
       activeTickColor,
       activeNeighborTickColor,
+      glassCenterLabelColor,
       glassPillBackgroundColor,
       glassPillBorderRadius,
     ],
   );
 
   return (
-    <View
-      style={[styles.host, styles.hostFluid, style]}
-    >
+    <View style={[styles.host, styles.hostFluid, style]}>
       <View style={[styles.wrap, styles.wrapFluid]}>
         <NativeHeightRulerView
           key={unit}
@@ -228,9 +207,9 @@ export const HeightRuler = forwardRef<HeightRulerHandle, HeightRulerProps>(funct
           accessibilityRole="adjustable"
           accessibilityLabel="Height ruler, vertical"
           accessibilityValue={{
-            min: a11yBounds.min,
-            max: a11yBounds.max,
-            now: currentValueRef.current,
+            min: NATIVE_RULER_CM_MIN,
+            max: NATIVE_RULER_CM_MAX,
+            now: Math.round(currentValueRef.current),
             text: formatValue ? formatValue(currentValueRef.current) : undefined,
           }}
         />

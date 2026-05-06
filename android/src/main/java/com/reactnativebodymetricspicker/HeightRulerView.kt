@@ -151,6 +151,23 @@ private fun parseColor(s: String?): Int {
       )
     }
   }
+  if (t.startsWith("rgb(") && t.endsWith(")")) {
+    val parts = t.substring(4, t.length - 1).split(",").map { it.trim().toFloatOrNull() ?: 0f }
+    if (parts.size >= 3) {
+      var r = parts[0]
+      var g = parts[1]
+      var b = parts[2]
+      if (r > 1f) r /= 255f
+      if (g > 1f) g /= 255f
+      if (b > 1f) b /= 255f
+      return Color.argb(
+        255,
+        (r * 255).toInt().coerceIn(0, 255),
+        (g * 255).toInt().coerceIn(0, 255),
+        (b * 255).toInt().coerceIn(0, 255),
+      )
+    }
+  }
   return Color.GRAY
 }
 
@@ -207,6 +224,7 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   var colorMajorTick = ""
   var colorGlassActiveTick = ""
   var colorGlassActiveNeighborTick = ""
+  var colorGlassCenterLabel = ""
   var glassPillBackgroundColor: String? = null
   var glassPillBorderRadius: Double = 0.0
 
@@ -1080,7 +1098,11 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
       val inkOutside = ColorUtils.blendARGB(cMajor, cMid, min(1f, labelNeighborGlow * 0.82f))
       val inkPill =
         if (pillUseLightForeground) Color.parseColor("#FAFAFA") else Color.parseColor("#111827")
-      val inkBase = ColorUtils.blendARGB(inkOutside, inkPill, pillBandEase)
+      var inkBase = ColorUtils.blendARGB(inkOutside, inkPill, pillBandEase)
+      if (colorGlassCenterLabel.isNotBlank()) {
+        val accent = parseColor(colorGlassCenterLabel)
+        inkBase = ColorUtils.blendARGB(inkBase, accent, labelCenterGlow.coerceIn(0f, 1f))
+      }
       textPaint.color =
         ColorUtils.setAlphaComponent(
           inkBase,
