@@ -166,6 +166,20 @@ yarn start
 
 See **`example/src/app/index.tsx`** for **New Architecture** ruler demos and hero layout.
 
+### Demo recordings
+
+Screen captures from **`example`** ([`docs/`](docs/)).
+
+**Android**
+
+<video src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4" controls playsinline muted width="320"></video>
+
+**iOS**
+
+<video src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4" controls playsinline muted width="320"></video>
+
+If previews don’t show (e.g. on npmjs), open **[`docs/android-example.mp4`](docs/android-example.mp4)** · **[`docs/ios-example.mp4`](docs/ios-example.mp4)** on GitHub ([`main` branch raw files](https://github.com/conrador/react-native-body-metrics-picker/tree/main/docs)).
+
 ---
 
 ## Contributing
