@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a new capability, prop, or platform parity improvement.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the **problem** you are solving before the solution. Check existing issues first (see `CONTRIBUTING.md`).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What use case is missing or awkward today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: API shape, UX, or behaviour you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional — other ways you solved it in the host app.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Likely scope
+      options:
+        - HeightRuler (native iOS/Android)
+        - UnitSwitcher (JS / Reanimated)
+        - Documentation only
+        - Not sure
+    validations:
+      required: true

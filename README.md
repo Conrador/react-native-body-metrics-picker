@@ -25,16 +25,9 @@ React Native **native** vertical height ruler (**Fabric** on both platforms) plu
 
 ## Installation
 
-Public registry:
-
 ```bash
 npm install react-native-body-metrics-picker
-```
-
-Private scoped package (after you configure scope auth, e.g. npm org / GitHub Packages):
-
-```bash
-npm install @your-scope/react-native-body-metrics-picker
+# or: yarn add react-native-body-metrics-picker
 ```
 
 Then **iOS**: `pod install` in `ios/` (Codegen picks up specs from `node_modules`). **Android**: Gradle autolinking + New Architecture alignment with your app.
@@ -179,6 +172,12 @@ See **`example/src/app/index.tsx`** for Fabric demos and hero layout.
 
 ---
 
+## Contributing
+
+Branching, issue expectations, PR checklist, and changelog rules live in **[`CONTRIBUTING.md`](CONTRIBUTING.md)**. Release notes follow **[Keep a Changelog](https://keepachangelog.com/)** in **`CHANGELOG.md`**.
+
+---
+
 ## iOS build notes
 
 If Xcode fails compiling **`RCTHeightRulerView.mm`** with **`react/utils/fnf1a.h`** or **`folly/dynamic.h` file not found**, the CocoaPods target was missing RN’s bundled **Folly/ReactNativeDependencies** headers. This library’s **`install_modules_dependencies(s)`** (from **`react_native_pods.rb`**) aligns the pod with the same Fabric/Folly toolchain as codegen. After updating the podspec, **`pod install`** and a clean build.
@@ -193,13 +192,6 @@ If you fork the podspec, **avoid** declaring only **`React-Core` + `React-RCTFab
 - **`prepublishOnly`** runs **`bob build`** automatically during **`npm publish`**, so the tarball always includes **`lib/`**.
 
 Dry run locally: **`npm pack`** — files should match **`package.json`**’s **`files`** field (`lib/`, `src/`, `ios/`, `android/`, podspec, `README.md`, `LICENSE`, …).
-
-### Private scoped package / registry
-
-1. Use a **scoped name**, e.g. **`"@your-org/react-native-body-metrics-picker"`**.
-2. Add **`"publishConfig": { "access": "restricted" }`** for **private scoped** packages on the public npm registry (requires an npm org / appropriate plan).
-3. **`access: "restricted"` is not valid for unscoped package names** — rename to a scope or publish to GitHub/npm Enterprise private registry instead.
-4. In the consuming app: **`npm install @your-org/...`** (with registry auth configured), **`pod install`**, rebuild Android.
 
 ---
 

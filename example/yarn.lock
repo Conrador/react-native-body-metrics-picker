@@ -4014,7 +4014,7 @@ react-is@^19.1.0:
   integrity sha512-Dn0t8IQhCmeIT3wu+Apm1/YVsJXsGWi6k4sPdnBIdqMVtHtv0IGi6dcpNpNkNac0zB2uUAqNX3MHzN8c+z2rwQ==
 
 "react-native-body-metrics-picker@file:..":
-  version "0.1.0"
+  version "1.0.0"
   resolved "file:.."
 
 react-native-gesture-handler@*, react-native-gesture-handler@~2.30.0:

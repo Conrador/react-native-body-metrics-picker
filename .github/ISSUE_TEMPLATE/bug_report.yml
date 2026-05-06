@@ -1,0 +1,88 @@
+name: Bug report
+description: Something is broken or behaves incorrectly (native ruler, UnitSwitcher, or install/build).
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Include **environment** and a **minimal repro** whenever possible (see `CONTRIBUTING.md` in the repo root).
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Short description of the bug (one or two sentences).
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+
+  - type: input
+    id: version-lib
+    attributes:
+      label: Library version
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: version-rn
+    attributes:
+      label: react-native version
+      placeholder: e.g. 0.83.x
+    validations:
+      required: true
+
+  - type: dropdown
+    id: new-arch
+    attributes:
+      label: New Architecture (Fabric)
+      options:
+        - "Yes"
+        - "No"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - iOS
+        - Android
+        - Both
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version (optional)
+      placeholder: e.g. iOS 18, Android 15
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Code snippet, steps, or link to a small repro app / branch.
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Logs / screenshots
+      description: Optional stack traces, LogBox, screen recording.
