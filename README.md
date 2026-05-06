@@ -11,46 +11,6 @@ React Native **native** vertical height ruler built for the **New Architecture**
 - TypeScript typings for exported components
 - Accessible labels (snap position uses native a11y value ranges)
 
-## Example app (this repo)
-
-```bash
-cd example
-yarn install
-yarn start
-# Then iOS/Android from Expo CLI
-```
-
-See **`example/src/app/index.tsx`** for **New Architecture** ruler demos and hero layout.
-
-### Demo recordings
-
-Still frames are **clickable** (open the **MP4** in the browser): **[Android](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4)** · **[iOS](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4)**. Hosted from **`raw.githubusercontent.com`** so they render on npm too ([`docs/`](docs/)). Posters are side by side below: **Android** is **360 px** wide, **iOS** **280 px** (aspect ratio preserved).
-
-<table>
-  <tr>
-    <td align="center" width="50%"><strong>Android</strong></td>
-    <td align="center" width="50%"><strong>iOS</strong></td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4"
-        ><img
-          src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-poster.jpg"
-          width="360"
-          alt="Android example recording"
-      /></a>
-    </td>
-    <td align="center">
-      <a href="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4"
-        ><img
-          src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-poster.png"
-          width="300"
-          alt="iOS example recording"
-      /></a>
-    </td>
-  </tr>
-</table>
-
 ---
 
 ## Peer dependencies
@@ -194,6 +154,46 @@ Exported from the package root: **`formatHeightRulerCmString`**, **`nativeRulerB
 - **`UnitSwitcher`**, **`UnitSwitcherProps`**
 - **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**
 - Shared types: **`HeightUnit`**, **`UnitSystem`**, **`HeightValue`**, etc.
+
+## Example app (this repo)
+
+```bash
+cd example
+yarn install
+yarn start
+# Then iOS/Android from Expo CLI
+```
+
+See **`example/src/app/index.tsx`** for **New Architecture** ruler demos and hero layout.
+
+### Demo recordings
+
+Still frames are **clickable** (open the **MP4** in the browser): **[Android](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4)** · **[iOS](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4)**.
+
+<table>
+  <tr>
+    <td align="center" width="50%"><strong>Android</strong></td>
+    <td align="center" width="50%"><strong>iOS</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <a href="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4"
+        ><img
+          src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-poster.jpg"
+          width="360"
+          alt="Android example recording"
+      /></a>
+    </td>
+    <td align="center">
+      <a href="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4"
+        ><img
+          src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-poster.png"
+          width="300"
+          alt="iOS example recording"
+      /></a>
+    </td>
+  </tr>
+</table>
 
 ---
 
