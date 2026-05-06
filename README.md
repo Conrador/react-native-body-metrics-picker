@@ -13,24 +13,34 @@ React Native **native** vertical height ruler built for the **New Architecture**
 
 ---
 
-## Peer dependencies
-
-| Package                   | Notes                                                                                                                                                                                                                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `react`                   | `>= 18`                                                                                                                                                                                                                            |
-| `react-native`            | **New Architecture** required for the ruler (tested against `>= 0.74`)                                                                                                                                                             |
-| `react-native-reanimated` | **`UnitSwitcher`** only. If you use **only `HeightRuler`** and build your own switcher, Reanimated must still satisfy the peer constraint unless you duplicate the dependency workaround (recommended: declare Reanimated anyway). |
-
 ## Installation
+
+### Prerequisites
+
+Your app needs the following — install and configure them **before** or **with** this library:
+
+| Package                     | Notes                                                                                                                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`react`**                 | `>= 18`.                                                                                                                                                                                                                                                      |
+| **`react-native`**          | **New Architecture** enabled (tested against **`>= 0.74`**). Gradle / Xcode configs must enable the Fabric / native-modules stack your RN version expects.                                                                                                    |
+| **`react-native-reanimated`** | Declare it even if you only use **`HeightRuler`**: `UnitSwitcher` is implemented with Reanimated, and `package.json` still expects the peer to resolve cleanly. Configure Reanimated per [its install docs](https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started/). |
+
+**Expo:** the package works with **Expo apps that include custom native code** (development builds with **`expo-dev-client`**, **EAS Build**, **`expo prebuild`**, etc.). It does **not** work in **Expo Go**, because Expo Go ships a fixed native binary that cannot load this ruler’s native view.
+
+### Install the package
 
 ```bash
 npm install react-native-body-metrics-picker
 # or: yarn add react-native-body-metrics-picker
 ```
 
-Then **iOS**: `pod install` in `ios/` (Codegen picks up specs from `node_modules`). **Android**: Gradle autolinking + New Architecture alignment with your app.
+### Native follow-up (**bare** workflow)
 
-**Minimum iOS:** the pod declares **`IPHONEOS_DEPLOYMENT_TARGET` 15.1**. Your Expo `Podfile.properties.json` **`ios.deploymentTarget`** (or Xcode project) must be **≥ 15.1** — otherwise CocoaPods reports that the pod “requires a higher minimum deployment target”.
+**iOS:** from `ios/`, run **`pod install`** (Codegen picks specs from **`node_modules`**). **Android:** Gradle autolinking + New Architecture settings consistent with your app.
+
+**Expo:** if you do not maintain a local **`ios/`** / **`android/`** tree (managed workflow, builds via **EAS** or **`expo prebuild`**), you **do not** run **`pod install`** (or manual Gradle steps) yourself — those run when the native project is generated or on the build server.
+
+**Minimum iOS:** the pod declares **`IPHONEOS_DEPLOYMENT_TARGET` 15.1**. Your Expo **`Podfile.properties.json`** **`ios.deploymentTarget`** (or Xcode project) must be **≥ 15.1** — otherwise CocoaPods reports that the pod “requires a higher minimum deployment target”.
 
 ---
 
