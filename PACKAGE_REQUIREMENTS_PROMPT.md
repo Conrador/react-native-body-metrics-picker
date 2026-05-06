@@ -40,7 +40,7 @@ The UX should feel:
 
 For now, implement ONLY:
 
-- `HeightRuler` (JS/Reanimated; native Fabric ruler planned)
+- `HeightRuler` (native ruler on **New Architecture**; optional JS `UnitSwitcher` with Reanimated)
 
 ❌ Do NOT implement:
 

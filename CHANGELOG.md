@@ -18,4 +18,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Initial public release: Fabric `HeightRuler` (iOS + Android), optional Reanimated `UnitSwitcher`, and documented public API.
+- Initial public release: **`HeightRuler`** (New Architecture on iOS and Android), optional Reanimated `UnitSwitcher`, and documented public API.

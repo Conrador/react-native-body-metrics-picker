@@ -3,7 +3,7 @@ import UIKit
 public typealias RNBMOnValueChangeBlock = @convention(block) (NSString) -> Void
 public typealias RNBMVoidBlock = @convention(block) () -> Void
 
-/// Pure UIKit height ruler; events go to Fabric (`RCTHeightRulerView` → `HeightRulerViewEventEmitter`).
+/// Pure UIKit height ruler; events bubble to the RN host (`RCTHeightRulerView` → `HeightRulerViewEventEmitter`).
 @objc(RNHeightRulerHostingView)
 public final class RNHeightRulerHostingView: UIView {
   private let model = RulerStateModel()

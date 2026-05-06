@@ -1,6 +1,6 @@
 import Foundation
 
-/// Holds ruler props; updated from Fabric (`RCTHeightRulerView`) and read by `HeightRulerUIKitView`.
+/// Holds ruler props; updated from the native host (`RCTHeightRulerView`) and read by `HeightRulerUIKitView`.
 final class RulerStateModel {
 
   struct UnitTransitionContext {

@@ -8,7 +8,7 @@ def isNewArchitectureEnabled() {
   return project.hasProperty("newArchEnabled") && project.newArchEnabled == "true"
 }
 
-// New Architecture / Fabric: generates `build/generated/source/codegen/jni` for CMake autolinking.
+// New Architecture: generates `build/generated/source/codegen/jni` for CMake autolinking.
 if (isNewArchitectureEnabled()) {
   apply plugin: "com.facebook.react"
 }

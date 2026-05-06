@@ -48,7 +48,7 @@ body:
   - type: dropdown
     id: new-arch
     attributes:
-      label: New Architecture (Fabric)
+      label: New Architecture
       options:
         - "Yes"
         - "No"

@@ -1,10 +1,10 @@
 # react-native-body-metrics-picker
 
-React Native **native** vertical height ruler (**Fabric** on both platforms) plus an optional **`UnitSwitcher`** (JavaScript / Reanimated) for cm ⇄ ft. Use **`HeightRuler`** for the ruler UI; compose it with your own chrome or **`UnitSwitcher`** as needed.
+React Native **native** vertical height ruler built for the **New Architecture** on both platforms, plus an optional **`UnitSwitcher`** (JavaScript / Reanimated) for cm ⇄ ft. Use **`HeightRuler`** for the ruler UI; compose it with your own chrome or **`UnitSwitcher`** as needed.
 
 ## Features
 
-- **`HeightRuler`** — Fabric `UIView` / Android custom view with snap scrolling, glass “pill”, haptics-oriented behaviour
+- **`HeightRuler`** — native **iOS** (`UIView`) / **Android** custom view with snap scrolling, glass “pill”, haptics-oriented behaviour
 - **`UnitSwitcher`** — segmented control styling (thumb spring, drag) powered by **`react-native-reanimated`** — keep it beside the ruler when you want unit switching
 - Values from the ruler are **`onValueChange` centimetre decimal strings**; `unit` on `HeightRuler` only affects **display** scaling (cm vs ft/in labels)
 - Imperative **`ref`** API: `getSnapshot()`, `getValueCm()`, **`subscribe()`**, plus **`useHeightRulerSnapshot()`** for reactive readouts
@@ -20,7 +20,7 @@ React Native **native** vertical height ruler (**Fabric** on both platforms) plu
 | Package                   | Notes                                                                                                                                                                                                                              |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `react`                   | `>= 18`                                                                                                                                                                                                                            |
-| `react-native`            | New Architecture / Fabric assumed for the ruler (tested against `>= 0.74`)                                                                                                                                                         |
+| `react-native`            | **New Architecture** required for the ruler (tested against `>= 0.74`)                                                                                                                                                             |
 | `react-native-reanimated` | **`UnitSwitcher`** only. If you use **only `HeightRuler`** and build your own switcher, Reanimated must still satisfy the peer constraint unless you duplicate the dependency workaround (recommended: declare Reanimated anyway). |
 
 ## Installation
@@ -84,7 +84,7 @@ Give the **`View` wrapping `HeightRuler` a real height** (or `flex: 1` under a b
 
 ### `HeightRuler` props
 
-Fabric native view on **both** platforms. **Android-only** props are omitted on iOS by the JS wrapper (Fabric does not receive them).
+Native ruler view on **both** platforms (**New Architecture**). **Android-only** props are omitted on iOS by the JS wrapper so the host never receives them.
 
 | Prop                           | Type                      | Default                                   | iOS         | Android | Description                                                                                                             |
 | ------------------------------ | ------------------------- | ----------------------------------------- | ----------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -112,7 +112,7 @@ Fabric native view on **both** platforms. **Android-only** props are omitted on 
 
 Colour strings are parsed natively: **`#RGB` / `#RRGGBB` / `#RRGGBBAA`**, **`rgb()`**, **`rgba()`** (unsupported forms fall back to a neutral grey).
 
-The wrapper also passes codegen-only fields (`rangeMin`, `rangeMax`, `step`, …) for Fabric; **native code ignores them** and clamps the band to **100–250 cm**.
+The wrapper also forwards **codegen-only** fields (`rangeMin`, `rangeMax`, `step`, …) that the component spec requires; **native code ignores them** and clamps the band to **100–250 cm**.
 
 ### `UnitSwitcher` props
 
@@ -168,7 +168,7 @@ yarn start
 # Then iOS/Android from Expo CLI
 ```
 
-See **`example/src/app/index.tsx`** for Fabric demos and hero layout.
+See **`example/src/app/index.tsx`** for **New Architecture** ruler demos and hero layout.
 
 ---
 
@@ -180,9 +180,9 @@ Branching, issue expectations, PR checklist, and changelog rules live in **[`CON
 
 ## iOS build notes
 
-If Xcode fails compiling **`RCTHeightRulerView.mm`** with **`react/utils/fnf1a.h`** or **`folly/dynamic.h` file not found**, the CocoaPods target was missing RN’s bundled **Folly/ReactNativeDependencies** headers. This library’s **`install_modules_dependencies(s)`** (from **`react_native_pods.rb`**) aligns the pod with the same Fabric/Folly toolchain as codegen. After updating the podspec, **`pod install`** and a clean build.
+If Xcode fails compiling **`RCTHeightRulerView.mm`** with **`react/utils/fnf1a.h`** or **`folly/dynamic.h` file not found**, the CocoaPods target was missing RN’s bundled **Folly / React Native dependency** headers. This library’s **`install_modules_dependencies(s)`** (from **`react_native_pods.rb`**) lines the pod up with the **New Architecture** codegen and native view stack. After updating the podspec, **`pod install`** and a clean build.
 
-If you fork the podspec, **avoid** declaring only **`React-Core` + `React-RCTFabric`** by hand — you still need folly paths (see RN’s **`install_modules_dependencies`**).
+If you fork the podspec, **do not** recreate dependencies by hand with a minimal pod list — rely on **`install_modules_dependencies`** so codegen, Folly search paths, and view-manager headers stay in sync with your React Native version.
 
 ---
 

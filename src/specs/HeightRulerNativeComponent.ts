@@ -4,7 +4,7 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
 
 type ValueChangeEvent = Readonly<{ value: string }>;
 
-// Fabric codegen: event payload cannot be `{}` — use named empty shape.
+// Codegen: scroll event payload cannot be `{}` — use named empty shape.
 interface EmptyScrollEvent {}
 
 export interface NativeProps extends ViewProps {

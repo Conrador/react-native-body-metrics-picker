@@ -1,5 +1,5 @@
 /**
- * Ensures all CocoaPods targets use libc++ + C++20 for Fabric / ObjC++.
+ * Ensures CocoaPods targets use libc++ + C++20 for ObjC++ / New Architecture codegen.
  * Do not add libc++ to HEADER_SEARCH_PATHS — breaks the `std` module on Xcode 26.
  *
  * Uses balanced-paren insertion after react_native_post_install(...) so it works

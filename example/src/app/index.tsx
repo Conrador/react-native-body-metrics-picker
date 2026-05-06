@@ -1,6 +1,10 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Fraunces_600SemiBold, Fraunces_700Bold, useFonts as useFrauncesFonts } from '@expo-google-fonts/fraunces';
+import {
+  Fraunces_600SemiBold,
+  Fraunces_700Bold,
+  useFonts as useFrauncesFonts,
+} from '@expo-google-fonts/fraunces';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from '@expo-google-fonts/outfit';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -85,8 +89,8 @@ function DemoDebugFtOnly({ rulerRef }: { rulerRef: React.RefObject<HeightRulerHa
     <View style={styles.debugContainer}>
       <Text style={styles.debugLabel}>Value</Text>
       <Text style={styles.debugValue}>
-        {formatFeetInchesFromCm(valueString)} ({formatFeetDecimalFromCm(valueString)} ft) · {valueString}{' '}
-        cm
+        {formatFeetInchesFromCm(valueString)} ({formatFeetDecimalFromCm(valueString)} ft) ·{' '}
+        {valueString} cm
       </Text>
     </View>
   );
@@ -160,9 +164,7 @@ function DemoHeroReadout({
       >
         {unit === 'cm' ? `${Math.round(Number(valueString))}` : formatFeetInchesFromCm(valueString)}
       </Text>
-      <Text style={styles.heroValueUnit}>
-        {unit === 'cm' ? 'centimeters' : 'feet & inches'}
-      </Text>
+      <Text style={styles.heroValueUnit}>{unit === 'cm' ? 'centimeters' : 'feet & inches'}</Text>
       <Text style={styles.heroValueSub}>
         {unit === 'ft'
           ? `${valueString} cm · ${formatFeetDecimalFromCm(valueString)} ft`
@@ -229,13 +231,13 @@ export default function HomeScreen() {
         removeClippedSubviews={false}
       >
         <Text style={styles.title}>Body Metrics Picker</Text>
-        <Text style={styles.subtitle}>Fabric HeightRuler (react-native-body-metrics-picker)</Text>
+        <Text style={styles.subtitle}>
+          HeightRuler — New Architecture (react-native-body-metrics-picker)
+        </Text>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ruler - cm only</Text>
-          <Text style={styles.sectionDescription}>
-            Native vertical ruler in centimeters.
-          </Text>
+          <Text style={styles.sectionDescription}>Native vertical ruler in centimeters.</Text>
 
           <View style={styles.rulerCard}>
             <View style={styles.rulerWrap}>
@@ -287,8 +289,8 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>Ruler - cm (custom theme)</Text>
           <Text style={styles.sectionDescription}>
             Different tick and glass tint colors plus an optional{' '}
-            <Text style={styles.inlineCode}>fontFamily</Text> — native ruler label size is fixed (19 pt/sp);
-            labels inherit major/mid tick colors.
+            <Text style={styles.inlineCode}>fontFamily</Text> — native ruler label size is fixed (19
+            pt/sp); labels inherit major/mid tick colors.
           </Text>
 
           <View style={[styles.rulerCard, styles.rulerCardAurora]}>
@@ -318,8 +320,8 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ruler - cm/ft switcher</Text>
           <Text style={styles.sectionDescription}>
-            JS/Reanimated switcher with drag + spring thumb. Android uses a Material-style track, elevation,
-            and Roboto-friendly labels; iOS keeps the glass thumb sheen.
+            JS/Reanimated switcher with drag + spring thumb. Android uses a Material-style track,
+            elevation, and Roboto-friendly labels; iOS keeps the glass thumb sheen.
           </Text>
 
           <View style={styles.rulerCard}>
@@ -448,7 +450,7 @@ export default function HomeScreen() {
                     tickSpacing={15}
                     {...(Platform.OS === 'android' ? androidPill.jewel : {})}
                   />
-                  </View>
+                </View>
                 <View style={styles.heroReadoutWrap} pointerEvents="box-none">
                   <DemoHeroReadout rulerRef={heroRulerRef} heroUnit={heroUnit} />
                 </View>
@@ -457,7 +459,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
-      </SafeAreaView>
+    </SafeAreaView>
   );
 }
 

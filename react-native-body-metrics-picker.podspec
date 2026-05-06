@@ -36,12 +36,12 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "15.1" }
   s.source       = { :git => package.dig("repository", "url") || "https://github.com/user/react-native-body-metrics-picker.git", :tag => "v#{s.version}" }
   s.source_files = "ios/**/*.{h,m,mm,swift}"
-  # Fabric headers (C++ / <atomic>) must not be part of the Swift umbrella — only .mm needs them.
+  # C++ interop headers must not be part of the Swift umbrella — only .mm needs them.
   s.private_header_files = "ios/RCTHeightRulerView.h"
   s.swift_version = "5.0"
   s.module_name   = "RNBodyMetricsPicker"
 
-  # Base Xcode settings; RN then merges folly/Fabric/third-party headers and deps via install_modules_dependencies.
+  # Base Xcode settings; RN merges Folly, codegen, and New Architecture headers/deps via install_modules_dependencies.
   s.pod_target_xcconfig = {
     # Snapshotted codegen + Yoga + ReactCommon — helper below adds folly and the rest via add_rn_third_party_dependencies.
     "HEADER_SEARCH_PATHS" =>
@@ -59,6 +59,6 @@ Pod::Spec.new do |s|
     "SWIFT_COMPILATION_MODE" => "wholemodule",
   }
 
-  # Declares RCT-Folly, React-Fabric/ReactCodegen toolchain, folly search paths when using RN prebuilds/source.
+  # RCT-Folly, codegen, and RN New Architecture toolchain when using RN prebuilds/source.
   install_modules_dependencies(s)
 end
