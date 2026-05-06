@@ -170,8 +170,8 @@ Exported from the package root: **`formatHeightRulerCmString`**, **`nativeRulerB
 ```bash
 cd example
 yarn install
-yarn start
-# Then iOS/Android from Expo CLI
+npx expo run:ios
+# or npx expo run:android
 ```
 
 See **`example/src/app/index.tsx`** for **New Architecture** ruler demos and hero layout.
@@ -218,15 +218,6 @@ Branching, issue expectations, PR checklist, and changelog rules live in **[`CON
 If Xcode fails compiling **`RCTHeightRulerView.mm`** with **`react/utils/fnf1a.h`** or **`folly/dynamic.h` file not found**, the CocoaPods target was missing RN’s bundled **Folly / React Native dependency** headers. This library’s **`install_modules_dependencies(s)`** (from **`react_native_pods.rb`**) lines the pod up with the **New Architecture** codegen and native view stack. After updating the podspec, **`pod install`** and a clean build.
 
 If you fork the podspec, **do not** recreate dependencies by hand with a minimal pod list — rely on **`install_modules_dependencies`** so codegen, Folly search paths, and view-manager headers stay in sync with your React Native version.
-
----
-
-## Publishing to npm
-
-- **`yarn build`** generates **`lib/`** (ignored in git — always run before checks that read compiled output ).
-- **`prepublishOnly`** runs **`bob build`** automatically during **`npm publish`**, so the tarball always includes **`lib/`**.
-
-Dry run locally: **`npm pack`** — files should match **`package.json`**’s **`files`** field (`lib/`, `src/`, `ios/`, `android/`, podspec, `README.md`, `LICENSE`, …).
 
 ---
 
