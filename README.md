@@ -11,10 +11,6 @@ React Native **native** vertical height ruler built for the **New Architecture**
 - TypeScript typings for exported components
 - Accessible labels (snap position uses native a11y value ranges)
 
-### Not in scope (yet)
-
-- Weight / age pickers mentioned in `package.json` description are placeholders for future work — **only HeightRuler + UnitSwitcher ship today.**
-
 ## Peer dependencies
 
 | Package                   | Notes                                                                                                                                                                                                                              |
@@ -192,6 +188,17 @@ If you fork the podspec, **do not** recreate dependencies by hand with a minimal
 - **`prepublishOnly`** runs **`bob build`** automatically during **`npm publish`**, so the tarball always includes **`lib/`**.
 
 Dry run locally: **`npm pack`** — files should match **`package.json`**’s **`files`** field (`lib/`, `src/`, `ios/`, `android/`, podspec, `README.md`, `LICENSE`, …).
+
+---
+
+## TODO
+
+Native rulers not implemented yet (API and behaviour TBD):
+
+- **`WeightRuler`** — weight picking on a vertical scale (unit switching, range, and glass UX to be defined).
+- **`AgeRuler`** — age picking on a vertical scale (bounds, step, and display format to be defined).
+
+**Ships today:** **`HeightRuler`** + **`UnitSwitcher`** only.
 
 ---
 
