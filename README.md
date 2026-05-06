@@ -24,17 +24,15 @@ See **`example/src/app/index.tsx`** for **New Architecture** ruler demos and her
 
 ### Demo recordings
 
-Screen captures from **`example`** ([`docs/`](docs/)).
+Still frames are **clickable** posters (open the full recording in the browser): **[Android MP4](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4)** · **[iOS MP4](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4)**. Hosted from **`raw.githubusercontent.com`** so they render on npm as well ([`docs/`](docs/)).
 
 **Android**
 
-<video src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4" controls playsinline muted width="320"></video>
+[![Android example recording](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-poster.jpg)](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/android-example.mp4)
 
 **iOS**
 
-<video src="https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4" controls playsinline muted width="320"></video>
-
-If previews don’t show (e.g. on npmjs), open **[`docs/android-example.mp4`](docs/android-example.mp4)** · **[`docs/ios-example.mp4`](docs/ios-example.mp4)** on GitHub ([`main` branch raw files](https://github.com/conrador/react-native-body-metrics-picker/tree/main/docs)).
+[![iOS example recording](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-poster.png)](https://raw.githubusercontent.com/conrador/react-native-body-metrics-picker/main/docs/ios-example.mp4)
 
 ---
 
