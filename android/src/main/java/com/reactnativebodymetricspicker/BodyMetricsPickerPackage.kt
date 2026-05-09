@@ -10,5 +10,5 @@ class BodyMetricsPickerPackage : ReactPackage {
     emptyList()
 
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
-    listOf(HeightRulerViewManager())
+    listOf(HeightRulerViewManager(), WeightRulerViewManager())
 }

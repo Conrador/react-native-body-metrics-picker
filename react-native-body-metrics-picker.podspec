@@ -37,7 +37,9 @@ Pod::Spec.new do |s|
   s.source       = { :git => package.dig("repository", "url") || "https://github.com/user/react-native-body-metrics-picker.git", :tag => "v#{s.version}" }
   s.source_files = "ios/**/*.{h,m,mm,swift}"
   # C++ interop headers must not be part of the Swift umbrella — only .mm needs them.
-  s.private_header_files = "ios/RCTHeightRulerView.h"
+  # Keep these private so consuming Pods don't pull Fabric C++ types into their ObjC PCH
+  # (e.g. ReactCodegen, where `<atomic>` would not be visible from a .m TU).
+  s.private_header_files = "ios/RCT*RulerView.h"
   s.swift_version = "5.0"
   s.module_name   = "RNBodyMetricsPicker"
 

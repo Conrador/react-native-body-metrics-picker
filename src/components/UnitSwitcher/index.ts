@@ -1,2 +1,6 @@
 export { UnitSwitcher } from './UnitSwitcher';
-export type { UnitSwitcherProps } from './UnitSwitcher';
+export type {
+  UnitSwitcherProps,
+  UnitSwitcherHeightProps,
+  UnitSwitcherWeightProps,
+} from './UnitSwitcher';
