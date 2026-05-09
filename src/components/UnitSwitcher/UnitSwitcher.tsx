@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import type { HeightUnit } from '../../types';
+import type { HeightUnit, WeightUnit } from '../../types';
 
 const isAndroid = Platform.OS === 'android';
 const thumbPressScaleRange =
@@ -27,9 +27,7 @@ const settleSpringConfig = Platform.select({
   default: { damping: 17, stiffness: 190, mass: 0.78, velocity: 0 },
 })!;
 
-export interface UnitSwitcherProps {
-  unit: HeightUnit;
-  onUnitChange?: (unit: HeightUnit) => void;
+type CommonUnitSwitcherProps = {
   trackColor?: string;
   thumbColor?: string;
   activeTextColor?: string;
@@ -39,29 +37,50 @@ export interface UnitSwitcherProps {
   fontFamily?: string;
   labelFontSize?: number;
   style?: StyleProp<ViewStyle>;
-}
+};
 
-export function UnitSwitcher({
-  unit,
-  onUnitChange,
-  trackColor = Platform.select({ android: '#E8EAED', default: '#F3F4F6' }),
-  thumbColor = '#FFFFFF',
-  activeTextColor = Platform.select({ android: '#1C1B1F', default: '#111827' }),
-  inactiveTextColor = Platform.select({ android: '#49454F', default: '#6B7280' }),
-  thumbSheenColor = '#FFFFFF',
-  thumbGlassBorderColor = Platform.select({
-    android: 'transparent',
-    default: 'rgba(60, 60, 67, 0.16)',
-  }),
-  fontFamily,
-  labelFontSize = 16,
-  style,
-}: UnitSwitcherProps) {
+/** Height: **cm** / **ft**. Default when `variant` is omitted. */
+export type UnitSwitcherHeightProps = CommonUnitSwitcherProps & {
+  variant?: 'height';
+  unit: HeightUnit;
+  onUnitChange?: (unit: HeightUnit) => void;
+};
+
+/** Weight: **kg** / **lbs** (values still `'kg' | 'lb'` for `WeightRuler`). */
+export type UnitSwitcherWeightProps = CommonUnitSwitcherProps & {
+  variant: 'weight';
+  unit: WeightUnit;
+  onUnitChange?: (unit: WeightUnit) => void;
+};
+
+export type UnitSwitcherProps = UnitSwitcherHeightProps | UnitSwitcherWeightProps;
+
+export function UnitSwitcher(props: UnitSwitcherProps) {
+  const isWeight = props.variant === 'weight';
+  const {
+    unit,
+    onUnitChange,
+    trackColor = Platform.select({ android: '#E8EAED', default: '#F3F4F6' }),
+    thumbColor = '#FFFFFF',
+    activeTextColor = Platform.select({ android: '#1C1B1F', default: '#111827' }),
+    inactiveTextColor = Platform.select({ android: '#49454F', default: '#6B7280' }),
+    thumbSheenColor = '#FFFFFF',
+    thumbGlassBorderColor = Platform.select({
+      android: 'transparent',
+      default: 'rgba(60, 60, 67, 0.16)',
+    }),
+    fontFamily,
+    labelFontSize = 16,
+    style,
+  } = props;
+
   const optionWidth = 64;
   const trackPadding = isAndroid ? 4 : 3;
   const tapThreshold = 12;
   const trackWidthRef = useRef(136);
-  const thumbX = useSharedValue(unit === 'ft' ? optionWidth : 0);
+  const thumbX = useSharedValue(
+    isWeight ? (unit === 'lb' ? optionWidth : 0) : unit === 'ft' ? optionWidth : 0,
+  );
   const pressMotion = useSharedValue(0);
   const dragStartX = useSharedValue(0);
   const isDragging = useSharedValue(false);
@@ -70,8 +89,14 @@ export function UnitSwitcher({
 
   useEffect(() => {
     if (isDragging.value) return;
-    thumbX.value = withSpring(unit === 'ft' ? optionWidth : 0, springConfig);
-  }, [unit, thumbX, isDragging, optionWidth]);
+    const target =
+      isWeight && unit === 'lb'
+        ? optionWidth
+        : !isWeight && unit === 'ft'
+          ? optionWidth
+          : 0;
+    thumbX.value = withSpring(target, springConfig);
+  }, [unit, thumbX, isDragging, optionWidth, isWeight]);
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [
@@ -86,11 +111,14 @@ export function UnitSwitcher({
   }));
 
   const settleThumb = useCallback(
-    (nextUnit: HeightUnit) => {
-      const targetX = nextUnit === 'ft' ? optionWidth : 0;
+    (nextUnit: HeightUnit | WeightUnit) => {
+      const targetX =
+        (isWeight && nextUnit === 'lb') || (!isWeight && nextUnit === 'ft')
+          ? optionWidth
+          : 0;
       thumbX.value = withSpring(targetX, settleSpringConfig);
     },
-    [optionWidth, thumbX],
+    [isWeight, optionWidth, thumbX],
   );
 
   const panResponder = useMemo(
@@ -118,19 +146,39 @@ export function UnitSwitcher({
             Math.abs(g.vx) < velocityThreshold &&
             Math.abs(g.vy) < velocityThreshold;
 
-          let nextUnit: HeightUnit;
+          let nextUnit: HeightUnit | WeightUnit;
+
           if (isTap) {
             const w = trackWidthRef.current;
             const x = evt.nativeEvent.locationX;
-            nextUnit = x < w / 2 ? 'cm' : 'ft';
+            if (isWeight) {
+              nextUnit = x < w / 2 ? 'kg' : 'lb';
+            } else {
+              nextUnit = x < w / 2 ? 'cm' : 'ft';
+            }
           } else if (Math.abs(g.vx) > velocityThreshold) {
-            nextUnit = g.vx > 0 ? 'ft' : 'cm';
+            if (isWeight) {
+              nextUnit = g.vx > 0 ? 'lb' : 'kg';
+            } else {
+              nextUnit = g.vx > 0 ? 'ft' : 'cm';
+            }
+          } else if (isWeight) {
+            nextUnit = thumbX.value > midpoint ? 'lb' : 'kg';
           } else {
             nextUnit = thumbX.value > midpoint ? 'ft' : 'cm';
           }
+
           settleThumb(nextUnit);
           if (nextUnit !== unit) {
-            onUnitChangeRef.current?.(nextUnit);
+            if (isWeight) {
+              (onUnitChangeRef.current as UnitSwitcherWeightProps['onUnitChange'])?.(
+                nextUnit as WeightUnit,
+              );
+            } else {
+              (onUnitChangeRef.current as UnitSwitcherHeightProps['onUnitChange'])?.(
+                nextUnit as HeightUnit,
+              );
+            }
           }
         },
         onPanResponderTerminate: () => {
@@ -139,8 +187,28 @@ export function UnitSwitcher({
           settleThumb(unit);
         },
       }),
-    [dragStartX, isDragging, optionWidth, pressMotion, settleThumb, tapThreshold, thumbX, unit],
+      [
+        dragStartX,
+        isDragging,
+        isWeight,
+        optionWidth,
+        pressMotion,
+        settleThumb,
+        tapThreshold,
+        thumbX,
+        unit,
+      ],
   );
+
+  const segments = isWeight
+    ? ([
+        { key: 'kg' as const, label: 'kg' },
+        { key: 'lb' as const, label: 'lbs' },
+      ] as const)
+    : ([
+        { key: 'cm' as const, label: 'cm' },
+        { key: 'ft' as const, label: 'ft' },
+      ] as const);
 
   return (
     <View
@@ -178,11 +246,11 @@ export function UnitSwitcher({
         ) : null}
       </Animated.View>
 
-      {(['cm', 'ft'] as const).map((option) => {
-        const selected = unit === option;
+      {segments.map((opt) => {
+        const selected = unit === opt.key;
         return (
           <View
-            key={option}
+            key={opt.key}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             style={[styles.option, isAndroid ? styles.optionAndroid : null]}
@@ -199,7 +267,7 @@ export function UnitSwitcher({
                 fontFamily ? { fontFamily } : null,
               ]}
             >
-              {option}
+              {opt.label}
             </Text>
           </View>
         );

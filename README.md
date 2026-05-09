@@ -1,15 +1,16 @@
 # react-native-body-metrics-picker
 
-React Native **native** vertical height ruler built for the **New Architecture** on both platforms, plus an optional **`UnitSwitcher`** (JavaScript / Reanimated) for cm ⇄ ft. Use **`HeightRuler`** for the ruler UI; compose it with your own chrome or **`UnitSwitcher`** as needed.
+React Native **native** body-metric rulers built for the **New Architecture** on both platforms — a **vertical** **`HeightRuler`** (cm ⇄ ft) and a **horizontal arc** **`WeightRuler`** (kg ⇄ lb) — plus an optional **`UnitSwitcher`** (JavaScript / Reanimated) shared by both. Drop them into your screen, compose them with your own chrome, and keep the values reactive through ref-based snapshots.
 
 ## Features
 
-- **`HeightRuler`** — native **iOS** (`UIView`) / **Android** custom view with snap scrolling, glass “pill”, haptics-oriented behaviour
-- **`UnitSwitcher`** — segmented control styling (thumb spring, drag) powered by **`react-native-reanimated`** — keep it beside the ruler when you want unit switching
-- Values from the ruler are **`onValueChange` centimetre decimal strings**; `unit` on `HeightRuler` only affects **display** scaling (cm vs ft/in labels)
-- Imperative **`ref`** API: `getSnapshot()`, `getValueCm()`, **`subscribe()`**, plus **`useHeightRulerSnapshot()`** for reactive readouts
-- TypeScript typings for exported components
-- Accessible labels (snap position uses native a11y value ranges)
+- **`HeightRuler`** — native **iOS** (`UIView`) / **Android** custom view with snap scrolling, glass “pill”, haptics-oriented behaviour. Source of truth: **centimetres**.
+- **`WeightRuler`** — native **iOS** (`UIView`) / **Android** custom view shaped as a **horizontal kitchen-scale arc** with the same snap / glass / haptics feel. Source of truth: **kilograms** (lb mode just relabels the scale; `100 kg → switch to lb → ~220 lb → back to kg → 100 kg` is lossless).
+- **`UnitSwitcher`** — segmented control styling (thumb spring, drag) powered by **`react-native-reanimated`**. One component with a **`variant`**: **`'height'`** (cm/ft) or **`'weight'`** (kg/lbs).
+- Values are emitted as **canonical decimal strings** — `HeightRuler` → cm (e.g. `"175.00"`), `WeightRuler` → kg (e.g. `"100.00"`). The `unit` prop on each ruler only affects the **on-screen scale**.
+- Imperative **`ref`** API per ruler — `getSnapshot()`, `getValueCm()` / `getValueKg()`, **`subscribe()`** — plus reactive hooks: **`useHeightRulerSnapshot()`** and **`useWeightRulerSnapshot()`**.
+- TypeScript typings for every exported component, prop, snapshot, and helper.
+- Accessible labels (snap position uses native a11y value ranges).
 
 ---
 
@@ -23,9 +24,9 @@ Your app needs the following — install and configure them **before** or **with
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`react`**                 | `>= 18`.                                                                                                                                                                                                                                                      |
 | **`react-native`**          | **New Architecture** enabled (tested against **`>= 0.74`**). Gradle / Xcode configs must enable the Fabric / native-modules stack your RN version expects.                                                                                                    |
-| **`react-native-reanimated`** | Declare it even if you only use **`HeightRuler`**: `UnitSwitcher` is implemented with Reanimated, and `package.json` still expects the peer to resolve cleanly. Configure Reanimated per [its install docs](https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started/). |
+| **`react-native-reanimated`** | Declare it even if you only use the rulers: `UnitSwitcher` is implemented with Reanimated, and `package.json` still expects the peer to resolve cleanly. Configure Reanimated per [its install docs](https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/getting-started/). |
 
-**Expo:** the package works with **Expo apps that include custom native code** (development builds with **`expo-dev-client`**, **EAS Build**, **`expo prebuild`**, etc.). It does **not** work in **Expo Go**, because Expo Go ships a fixed native binary that cannot load this ruler’s native view.
+**Expo:** the package works with **Expo apps that include custom native code** (development builds with **`expo-dev-client`**, **EAS Build**, **`expo prebuild`**, etc.). It does **not** work in **Expo Go**, because Expo Go ships a fixed native binary that cannot load these rulers’ native views.
 
 ### Install the package
 
@@ -88,6 +89,52 @@ Give the **`View` wrapping `HeightRuler` a real height** (or `flex: 1` under a b
 
 ---
 
+## Quick start (`WeightRuler` + `UnitSwitcher`)
+
+`WeightRuler` is **always controlled by canonical kilograms**. Pass `variant="weight"` to `UnitSwitcher` — the ruler does **not** need to be remounted on unit change, the JS wrapper hands the new display window to the native view itself:
+
+```tsx
+import { useCallback, useRef, useState } from 'react';
+import { View } from 'react-native';
+import {
+  UnitSwitcher,
+  WeightRuler,
+  useWeightRulerSnapshot,
+  weightRulerDisplayFromKg,
+  type WeightRulerHandle,
+  type WeightUnit,
+} from 'react-native-body-metrics-picker';
+
+function WeightScreen() {
+  const rulerRef = useRef<WeightRulerHandle>(null);
+  const [unit, setUnit] = useState<WeightUnit>('kg');
+  const { valueKg } = useWeightRulerSnapshot(rulerRef, unit);
+
+  const displayValue = Math.round(weightRulerDisplayFromKg(valueKg, unit));
+
+  const handleValue = useCallback((kg: string) => {
+    // kg is source of truth, e.g. "100.00"
+    console.log(kg);
+  }, []);
+
+  return (
+    <View style={{ height: 220 }}>
+      <UnitSwitcher variant="weight" unit={unit} onUnitChange={setUnit} />
+      <WeightRuler
+        ref={rulerRef}
+        unit={unit}
+        initialValue={78}
+        onValueChange={handleValue}
+      />
+    </View>
+  );
+}
+```
+
+The arc renders inside its parent — give the wrapping **`View` a height** (the component applies a **`minHeight` (~180 dp)** as a floor). `initialValue` is **always in kilograms** regardless of the current display unit.
+
+---
+
 ## API reference
 
 ### `HeightRuler` props
@@ -122,23 +169,62 @@ Colour strings are parsed natively: **`#RGB` / `#RRGGBB` / `#RRGGBBAA`**, **`rgb
 
 The wrapper also forwards **codegen-only** fields (`rangeMin`, `rangeMax`, `step`, …) that the component spec requires; **native code ignores them** and clamps the band to **100–250 cm**.
 
+### `WeightRuler` props
+
+Native horizontal **arc** (kitchen-scale) ruler on **both** platforms (**New Architecture**). State is canonical **kilograms**; `unit` only relabels the visible scale (lb mode covers **the same physical band** as kg mode, so unit flips never lose the live value). iOS uses a fixed frosted-glass overlay; Android uses a **solid coloured pill** (translucent glass reads as a render bug on most Android themes).
+
+| Prop                      | Type                      | Default                                   | iOS         | Android | Description                                                                                                                                          |
+| ------------------------- | ------------------------- | ----------------------------------------- | ----------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unit`                    | `'kg' \| 'lb'`            | (required)                                | Yes         | Yes     | Display scale for labels and ticks; emitted values stay **kg**.                                                                                      |
+| `initialValue`            | `number`                  | (required)                                | Yes         | Yes     | **Kilograms**; initial scroll position (not continuously synced from props after mount, but a new value re-syncs the native band).                   |
+| `onValueChange`           | `(valueKg: string) => void` | —                                       | Yes         | Yes     | Snapped weight as a decimal **kg** string (e.g. `"100.00"`).                                                                                         |
+| `formatValue`             | `(valueKg: number) => string` | —                                     | Yes         | Yes     | Feeds the optional **accessibility** announced value.                                                                                                |
+| `onScrollBegin`           | `() => void`              | —                                         | Yes         | Yes     |                                                                                                                                                      |
+| `onScrollEnd`             | `() => void`              | —                                         | Yes         | Yes     |                                                                                                                                                      |
+| `fontFamily`              | `string`                  | —                                         | Yes         | Yes     | iOS: PostScript / Expo font key; Android: `ReactFontManager` key.                                                                                    |
+| `tickSpacing`             | `number`                  | `12`                                      | Yes         | Yes     | Distance (dp/pt) **along the arc** between adjacent ticks.                                                                                           |
+| `minorTickHeight`         | `number`                  | `14`                                      | Yes         | Yes     |                                                                                                                                                      |
+| `midTickHeight`           | `number`                  | `22`                                      | Yes         | Yes     |                                                                                                                                                      |
+| `majorTickHeight`         | `number`                  | `32`                                      | Yes         | Yes     |                                                                                                                                                      |
+| `tickWidth`               | `number`                  | `1.5`                                     | Yes         | Yes     |                                                                                                                                                      |
+| `arcCenterOffset`         | `number`                  | `240`                                     | Yes         | Yes     | Vertical distance (dp/pt) from the bottom of the view to the arc center. **Larger = flatter arc** (closer to a straight line).                       |
+| `tickColor`               | `string`                  | iOS `#D1D5DB`; Android `''`               | Yes         | Yes     | Android **empty** ⇒ theme tertiary.                                                                                                                  |
+| `midTickColor`            | `string`                  | iOS `#6B7280`; Android `''`               | Yes         | Yes     | Android **empty** ⇒ theme secondary.                                                                                                                 |
+| `majorTickColor`          | `string`                  | iOS `#111827`; Android `''`               | Yes         | Yes     | Android **empty** ⇒ `textColorPrimary`.                                                                                                              |
+| `activeTickColor`         | `string`                  | iOS `#FFD60A`; Android `''`               | Yes         | Yes     | Centered (snapped) tick under the glass. Android **empty** ⇒ `colorPrimary`.                                                                         |
+| `activeNeighborTickColor` | `string`                  | iOS `rgba(255,214,10,0.72)`; Android `''` | Yes         | Yes     | ±1 ticks under the glass. Android **empty** ⇒ derived from primary.                                                                                  |
+| `glassCenterLabelColor`   | `string`                  | `''`                                      | Yes         | Yes     | Snapped value rendered under the glass overlay. **Empty** ⇒ inherits from `activeTickColor`.                                                         |
+| `glassBackgroundColor`    | `string`                  | iOS fixed material; Android `#F1F5F9`     | **Ignored** | **Yes** | Solid fill of the Android pill (iOS uses a fixed `UIVisualEffect` material).                                                                         |
+| `glassBorderColor`        | `string`                  | iOS fixed; Android `#CBD5E1`              | **Ignored** | **Yes** | Stroke colour of the Android pill border.                                                                                                            |
+| `glassArcHalfAngle`       | `number`                  | `0`                                       | Yes         | Yes     | Half angular span (radians) of the glass arc band. **`0`** = derive from `tickSpacing` so the band stays clearly horizontal (~3 labels + overhang).  |
+| `glassOuterPadding`       | `number`                  | `10`                                      | Yes         | Yes     | Extra distance (dp/pt) above the labels where the **outer** edge of the glass band sits.                                                             |
+| `glassLabelArea`          | `number`                  | `22`                                      | Yes         | Yes     | Vertical room (dp/pt) for the labels rendered **above the tick tips**, under the glass.                                                              |
+| `glassLabelFontSize`      | `number`                  | `18`                                      | Yes         | Yes     | Font size for the labels visible under the glass overlay.                                                                                            |
+| `trackColor`              | `string`                  | `''`                                      | Yes         | Yes     | Background fill behind the arc (`'transparent'` to skip).                                                                                            |
+| `style`                   | `ViewStyle`               | —                                         | Yes         | Yes     | Applied to the outer **JS** `View` around the native ruler.                                                                                          |
+
+Colour strings parse exactly like `HeightRuler` (above). The wrapper forwards `rangeMin` / `rangeMax` / `step` to the codegen spec for unit-aware tick rendering — internally the canonical band is always **50–250 kg**.
+
 ### `UnitSwitcher` props
 
-Implemented in **JavaScript** with **Reanimated**; usable on **iOS and Android**.
+Implemented in **JavaScript** with **Reanimated**; usable on **iOS and Android**. The component is **discriminated** by the **`variant`** prop (`'height'` or `'weight'`).
 
-| Prop                    | Type                   | Default                                          |
-| ----------------------- | ---------------------- | ------------------------------------------------ |
-| `unit`                  | `'cm' \| 'ft'`         | (required)                                       |
-| `onUnitChange`          | `(unit) => void`       | —                                                |
-| `trackColor`            | `string`               | Android `#E8EAED`, iOS `#F3F4F6`                 |
-| `thumbColor`            | `string`               | `#FFFFFF`                                        |
-| `activeTextColor`       | `string`               | Android `#1C1B1F`, iOS `#111827`                 |
-| `inactiveTextColor`     | `string`               | Android `#49454F`, iOS `#6B7280`                 |
-| `thumbSheenColor`       | `string`               | `#FFFFFF`                                        |
-| `thumbGlassBorderColor` | `string`               | Android `transparent`, iOS `rgba(60,60,67,0.16)` |
-| `fontFamily`            | `string`               | —                                                |
-| `labelFontSize`         | `number`               | `16`                                             |
-| `style`                 | `StyleProp<ViewStyle>` | —                                                |
+| Prop                    | Type                                       | Default                                          |
+| ----------------------- | ------------------------------------------ | ------------------------------------------------ |
+| `variant`               | `'height' \| 'weight'`                     | `'height'` (omit for cm/ft)                      |
+| `unit`                  | `'cm' \| 'ft'` *(height)*<br>`'kg' \| 'lb'` *(weight)* | (required)                            |
+| `onUnitChange`          | `(unit) => void` (matches `variant`)       | —                                                |
+| `trackColor`            | `string`                                   | Android `#E8EAED`, iOS `#F3F4F6`                 |
+| `thumbColor`            | `string`                                   | `#FFFFFF`                                        |
+| `activeTextColor`       | `string`                                   | Android `#1C1B1F`, iOS `#111827`                 |
+| `inactiveTextColor`     | `string`                                   | Android `#49454F`, iOS `#6B7280`                 |
+| `thumbSheenColor`       | `string`                                   | `#FFFFFF`                                        |
+| `thumbGlassBorderColor` | `string`                                   | Android `transparent`, iOS `rgba(60,60,67,0.16)` |
+| `fontFamily`            | `string`                                   | —                                                |
+| `labelFontSize`         | `number`                                   | `16`                                             |
+| `style`                 | `StyleProp<ViewStyle>`                     | —                                                |
+
+Weight mode displays **`kg` / `lbs`** labels and emits **`'kg' | 'lb'`**; height mode displays **`cm` / `ft`** and emits **`'cm' | 'ft'`**.
 
 ---
 
@@ -146,24 +232,32 @@ Implemented in **JavaScript** with **Reanimated**; usable on **iOS and Android**
 
 ### Native range (canonical)
 
-Internally both platforms constrain height to **`100 cm` … `250 cm`**. The `rangeMin` / `rangeMax` values on the native component exist for **codegen** only.
+- **`HeightRuler`** — both platforms internally clamp to **`100 cm` … `250 cm`**. The `rangeMin` / `rangeMax` values on the native component exist for **codegen** only.
+- **`WeightRuler`** — canonical band is **`50 kg` … `250 kg`**. In **lb** mode the native tick grid runs from **`110 lb`** to **`551 lb`** (rounded to whole pounds) — i.e. the same physical extent — so swapping units never moves the live value.
 
 ### Layout
 
-Height is driven by **parent layout**, not by a viewport prop: wrap in a sized container / flex.
+Height for both rulers is driven by **parent layout**, not by a viewport prop. Wrap in a sized container or use `flex: 1` under a bounded parent. Each ruler ships a sensible **`minHeight`** floor (HeightRuler ≈ **240 dp**, WeightRuler ≈ **180 dp**) so they stay usable inside scroll views.
 
 ### Conversion / formatting helpers
 
-Exported from the package root: **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**.
+Exported from the package root:
+
+- **Height** — **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**.
+- **Weight** — **`formatWeightRulerString`**, **`weightRulerBoundsForUnit`**, **`weightRulerDisplayFromKg`**, **`weightRulerKgFromDisplay`**, **`KG_PER_LB`**, **`LB_PER_KG`**, **`WEIGHT_RULER_KG_MIN`**, **`WEIGHT_RULER_KG_MAX`**, **`WEIGHT_RULER_STEP`**.
+
+The weight conversion helpers use the exact NIST factor (`1 lb = 0.45359237 kg`), so any kg ⇄ lb round-trip via `weightRulerDisplayFromKg` / `weightRulerKgFromDisplay` is lossless to within float precision.
 
 ---
 
 ## Exports (`src/index.ts`)
 
 - **`HeightRuler`**, **`useHeightRulerSnapshot`**, types **`HeightRulerProps`**, **`HeightRulerHandle`**, **`HeightRulerLiveSnapshot`**
-- **`UnitSwitcher`**, **`UnitSwitcherProps`**
-- **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**
-- Shared types: **`HeightUnit`**, **`UnitSystem`**, **`HeightValue`**, etc.
+- **`WeightRuler`**, **`useWeightRulerSnapshot`**, types **`WeightRulerProps`**, **`WeightRulerHandle`**, **`WeightRulerLiveSnapshot`**
+- **`UnitSwitcher`**, **`UnitSwitcherProps`**, **`UnitSwitcherHeightProps`**, **`UnitSwitcherWeightProps`**
+- Height helpers: **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**
+- Weight helpers: **`formatWeightRulerString`**, **`weightRulerBoundsForUnit`**, **`weightRulerDisplayFromKg`**, **`weightRulerKgFromDisplay`**, **`KG_PER_LB`**, **`LB_PER_KG`**, **`WEIGHT_RULER_KG_MIN`**, **`WEIGHT_RULER_KG_MAX`**, **`WEIGHT_RULER_STEP`**
+- Shared types: **`HeightUnit`**, **`WeightUnit`**, **`UnitSystem`**, **`HeightValue`**, **`WeightValue`**, etc.
 
 ## Example app (this repo)
 
@@ -174,7 +268,7 @@ npx expo run:ios
 # or npx expo run:android
 ```
 
-See **`example/src/app/index.tsx`** for **New Architecture** ruler demos and hero layout.
+See **`example/src/app/index.tsx`** for the **HeightRuler** demos and **`example/src/app/weight.tsx`** for the **WeightRuler** demos (both showcase the same hero / dark / aurora variants under the **New Architecture**).
 
 ### Demo recordings
 
@@ -215,7 +309,7 @@ Branching, issue expectations, PR checklist, and changelog rules live in **[`CON
 
 ## iOS build notes
 
-If Xcode fails compiling **`RCTHeightRulerView.mm`** with **`react/utils/fnf1a.h`** or **`folly/dynamic.h` file not found**, the CocoaPods target was missing RN’s bundled **Folly / React Native dependency** headers. This library’s **`install_modules_dependencies(s)`** (from **`react_native_pods.rb`**) lines the pod up with the **New Architecture** codegen and native view stack. After updating the podspec, **`pod install`** and a clean build.
+If Xcode fails compiling **`RCTHeightRulerView.mm`** or **`RCTWeightRulerView.mm`** with **`react/utils/fnf1a.h`** or **`folly/dynamic.h` file not found**, the CocoaPods target was missing RN’s bundled **Folly / React Native dependency** headers. This library’s **`install_modules_dependencies(s)`** (from **`react_native_pods.rb`**) lines the pod up with the **New Architecture** codegen and native view stack. After updating the podspec, **`pod install`** and a clean build.
 
 If you fork the podspec, **do not** recreate dependencies by hand with a minimal pod list — rely on **`install_modules_dependencies`** so codegen, Folly search paths, and view-manager headers stay in sync with your React Native version.
 
@@ -225,10 +319,9 @@ If you fork the podspec, **do not** recreate dependencies by hand with a minimal
 
 Native rulers not implemented yet (API and behaviour TBD):
 
-- **`WeightRuler`** — weight picking on a vertical scale (unit switching, range, and glass UX to be defined).
 - **`AgeRuler`** — age picking on a vertical scale (bounds, step, and display format to be defined).
 
-**Ships today:** **`HeightRuler`** + **`UnitSwitcher`** only.
+**Ships today:** **`HeightRuler`**, **`WeightRuler`**, and **`UnitSwitcher`**.
 
 ---
 

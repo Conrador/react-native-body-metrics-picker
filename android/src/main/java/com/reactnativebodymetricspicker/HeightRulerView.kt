@@ -55,6 +55,23 @@ private const val PILL_TICK_BLEND_SLOWDOWN_GAMMA: Double = 1.14
 /** >1 slows lerp between glass samples at integer center boundaries. */
 private const val PILL_GLASS_HANDOFF_SLOWDOWN_GAMMA: Double = 1.12
 
+// --- Continuous tick-length animation under the pill (matches WeightRulerView). -----------------
+// Replaces the discrete grid→glass sample blend with one Gaussian-driven formula so every tick
+// inside the band smoothly suppresses to a uniform floor and the snapped position grows toward
+// `unifiedTargetLen`. Same numbers as `WeightRulerView.kt` for cross-component visual parity.
+/** Gaussian width of the snap boost — peak 1.0 at snap, ~0.44 at ±1 step, ~0.04 at ±2 steps. */
+private const val HR_GLASS_BOOST_SIGMA = 1.1
+/** Wider Gaussian — strength of the "treat as uniform" pull that suppresses majors near the snap. */
+private const val HR_GLASS_UNIFORM_SIGMA = 2.0
+/** Extra dp added to the longest snapped tick on top of `majorTickHeight`. */
+private const val HR_GLASS_UNIFIED_BONUS_DP = 4.0
+/** Stroke (vertical thickness) pulse multiplier at snap — same factor as WeightRuler. */
+private const val HR_GLASS_STROKE_PULSE = 0.6f
+/** Snap-driven label growth — peak `1 + this` at exact snap, smoother dominance vs neighbors. */
+private const val HR_GLASS_LABEL_CENTER_BOOST = 0.32f
+/** How much neighbor labels shrink relative to natural size — keeps the snapped value dominant. */
+private const val HR_GLASS_LABEL_NEIGHBOR_SHRINK = 0.10f
+
 /** Must match [ANDROID_RULER_EXTRA_TRACK_DP] in rulerConstants.ts — widens pill + track on the right. */
 private const val ANDROID_RULER_EXTRA_TRACK_DP = 28.0
 
@@ -1005,12 +1022,26 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     val glassSample =
       glassLerp.copy(alwaysLabel = glassLabelSnap.alwaysLabel, baseLabel = glassLabelSnap.baseLabel)
 
-    val barWidthPx =
-      gridSample.barWidthPx + (glassSample.barWidthPx - gridSample.barWidthPx) * widthBlend
+    // WeightRuler-style continuous Gaussian length modulation. `boost` is sharp (peak at snap)
+    // and `uniform` is wider (pulls every tick inside the band down toward the minor floor so
+    // a major neighbor doesn't tower over its peers). Replaces the prior gridSample→glassSample
+    // discrete lerp so every fractional center position animates smoothly across all ticks.
+    val hrBoost = exp(-((dist / HR_GLASS_BOOST_SIGMA).toDouble()).pow(2.0))
+      .toFloat()
+      .coerceIn(0f, 1f)
+    val hrUniform = exp(-((dist / HR_GLASS_UNIFORM_SIGMA).toDouble()).pow(2.0))
+      .toFloat()
+      .coerceIn(0f, 1f)
+    val unifiedTargetLen = majorHPx + dp(HR_GLASS_UNIFIED_BONUS_DP)
+    val suppressedBase = gridSample.barWidthPx + (minorHPx - gridSample.barWidthPx) * hrUniform
+    val barWidthPx = suppressedBase + (unifiedTargetLen - suppressedBase) * hrBoost
+
     val baseColor =
       ColorUtils.blendARGB(gridSample.baseColor, glassSample.baseColor, widthBlend)
-    val gainX = gridSample.gainX + (glassSample.gainX - gridSample.gainX) * widthBlend
-    val gainY = gridSample.gainY + (glassSample.gainY - gridSample.gainY) * widthBlend
+    // `gainX`/`gainY` are intentionally no longer read here — width is fully driven by the
+    // smooth `barWidthPx` formula above and thickness by `thicknessPulse`. The lerped sample
+    // values still flow through `lerpPillTickDrawSample` for any future consumer; we just don't
+    // wire them into this row's geometry anymore.
     val alwaysLabel = glassSample.alwaysLabel
     val baseLabel = glassSample.baseLabel
 
@@ -1055,19 +1086,20 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
         centerHighlightInk,
         min(1f, centerGlow * 0.96f),
       )
-    val scaleX = 1f + (gainX * wave * TICK_WAVE_STRENGTH)
-    val scaleY = 1f + (gainY * wave * TICK_WAVE_STRENGTH)
+    // Width is fully driven by the smooth `barWidthPx` formula above; thickness pulses with the
+    // same boost as WeightRuler (`tickWidth * (1 + 0.6 * boost)`) so the snapped tick reads
+    // crisply without the prior wave-driven horizontal shimmer fighting the length animation.
+    val thicknessPulse = 1f + HR_GLASS_STROKE_PULSE * hrBoost
     val translationX =
       tickNudgePx * wave + centerNudgePx * centerGlow + neighborNudgePx * neighborGlow
-    val scaledW = barWidthPx * scaleX
     // Grow width around the bar midpoint so pulse animation does not shove the tick toward +X.
     val barCenterX = barStartPx + translationX + barWidthPx / 2f
     val rect =
       RectF(
-        barCenterX - scaledW / 2f,
-        centerY - (tickThicknessPx * scaleY / 2f),
-        barCenterX + scaledW / 2f,
-        centerY + (tickThicknessPx * scaleY / 2f),
+        barCenterX - barWidthPx / 2f,
+        centerY - (tickThicknessPx * thicknessPulse / 2f),
+        barCenterX + barWidthPx / 2f,
+        centerY + (tickThicknessPx * thicknessPulse / 2f),
       )
     clampTickBarRectToRow(rect, row.width.toFloat())
     val tickAlpha = ((highlighted ushr 24) and 0xFF) * pillCapsuleEdgeFade
@@ -1088,7 +1120,11 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
       // Tighter center peak + larger max scale so the snapped value reads clearly vs neighbors in the pill.
       val labelCenterGlow = exp(-((dist / 0.52f).toDouble().pow(2.0))).toFloat()
       val labelNeighborGlow = exp(-(((dist - 1f) / 0.72f).toDouble().pow(2.0))).toFloat()
-      val labelScale = 1f + (0.16f * labelCenterGlow) - (0.014f * labelNeighborGlow)
+      // WeightRuler-style stronger differential — center label clearly dominates, ±1 neighbors
+      // visibly shrink so the snapped value reads as the focal point inside the pill band.
+      val labelScale =
+        1f + (HR_GLASS_LABEL_CENTER_BOOST * labelCenterGlow) -
+          (HR_GLASS_LABEL_NEIGHBOR_SHRINK * labelNeighborGlow)
       val labelAlpha =
         when {
           unifySideNeighborMajorAsGlass -> glassLabelPresence
@@ -1148,6 +1184,10 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
    * Fits the three label baselines (±1 row from center) plus max scale and [labelDy] spread, with padding
    * so glyphs are not clipped by the rounded rect.
    */
+  // NOTE: the pill height computation (next function) intentionally still uses the prior
+  // `TICK_WAVE_STRENGTH`-based scaleY upper bound. The new `thicknessPulse` peaks at
+  // `1 + HR_GLASS_STROKE_PULSE = 1.6`, which is well within the wave-derived pill height
+  // headroom (gainY * 1.32 + 1 reaches ≈1.13 for majors), so capsule layout stays unchanged.
   private fun computedPillHeightPx(): Float {
     if (baseTextSizePx <= 0f || itemSizePx <= 0f) {
       return dp(56.0)
