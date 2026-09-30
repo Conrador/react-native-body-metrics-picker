@@ -14,6 +14,8 @@ export interface NativeProps extends ViewProps {
   step: Double;
   fractionDigits: Int32;
   longStepInterval: Int32;
+  /** Ticks between mid-height ticks. `0` = `longStepInterval / 2`. */
+  midStepInterval: Int32;
 
   /** Distance (in dp/pt) along the arc between adjacent ticks. */
   tickSpacingPx: Double;

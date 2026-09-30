@@ -16,6 +16,7 @@ export type {
   WeightRulerHandle,
   WeightRulerLiveSnapshot,
   WeightRulerProps,
+  WeightRulerStep,
 } from './components/WeightRuler';
 
 export type {
@@ -47,6 +48,7 @@ export {
   WEIGHT_RULER_KG_MAX,
   WEIGHT_RULER_KG_MIN,
   WEIGHT_RULER_STEP,
+  WEIGHT_RULER_STEPS,
   weightRulerBoundsForUnit,
   weightRulerDisplayFromKg,
   weightRulerKgFromDisplay,

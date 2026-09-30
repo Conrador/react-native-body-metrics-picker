@@ -98,6 +98,7 @@ static NSString *RNBMWNSString(const std::string &s)
   _rulerHost.step = newProps.step;
   _rulerHost.fractionDigits = newProps.fractionDigits;
   _rulerHost.longStepInterval = newProps.longStepInterval;
+  _rulerHost.midStepInterval = newProps.midStepInterval;
   _rulerHost.initialValue = newProps.initialValue;
   _rulerHost.tickSpacingPx = newProps.tickSpacingPx;
   _rulerHost.minorTickHeight = newProps.minorTickHeight;

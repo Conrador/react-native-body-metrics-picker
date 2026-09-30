@@ -30,6 +30,7 @@ import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.max
@@ -51,6 +52,10 @@ private const val GLASS_STATIC_FADE_BAND = 0.55     // angular fade halo (in ste
 // Extra radial padding (dp) that pushes the entire glass band outward — visually UP — so it sits
 // a bit higher above the tick tips and the static labels below have more breathing room.
 private const val GLASS_RADIAL_OFFSET_DP = 8.0
+// Fractional-step readout: size relative to `glassLabelFontSize` (the snapped label's peak scale in
+// neighbor-label mode) and horizontal room (dp) kept free on each side inside the glass.
+private const val GLASS_READOUT_SCALE = 1.3f
+private const val GLASS_READOUT_PADDING_DP = 10.0
 
 private class WeightRulerEvent(
   surfaceId: Int,
@@ -119,6 +124,8 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
   var step: Double = 1.0
   var fractionDigits: Int = 0
   var longStepInterval: Int = 10
+  /** Ticks between mid-height ticks; `0` = `longStepInterval / 2`. */
+  var midStepInterval: Int = 0
 
   var initialValue: Double = 75.0
   var tickSpacingPx: Double = 12.0
@@ -179,6 +186,11 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
   private val glassLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
     textAlign = Paint.Align.CENTER
   }
+  /** Fixed readout under the glass for fractional steps — tabular digits so it doesn't jitter. */
+  private val readoutPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    textAlign = Paint.Align.CENTER
+    fontFeatureSettings = "tnum"
+  }
 
   init {
     setWillNotDraw(false)
@@ -223,13 +235,25 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
     return round((s - rangeMin) / step).toInt()
   }
 
+  /** Total snap positions: indices `0..totalSteps()` cover `rangeMin..rangeMax`. */
+  private fun totalSteps(): Int = max(0, round((rangeMax - rangeMin) / step).toInt())
+
   private fun valueForIndex(idx: Int): Double {
-    val span = max(0, round((rangeMax - rangeMin) / step).toInt())
-    return rangeMin + min(max(idx, 0), span) * step
+    return rangeMin + min(max(idx, 0), totalSteps()) * step
   }
 
   private fun emitStringForValue(v: Double): String =
     String.format(Locale.US, "%.2f", snappedValue(v))
+
+  /**
+   * Fractional labels are too wide for the ±1 neighbor labels under the glass — the glass then
+   * shows a single, fixed readout of the snapped value instead.
+   */
+  private fun hasFractionalLabels(): Boolean = fractionDigits > 0
+
+  /** Fixed-width label under the glass (`"75.0"` rather than `"75"` for fractional steps). */
+  private fun readoutLabel(v: Double): String =
+    String.format(Locale.US, "%.${max(0, fractionDigits)}f", v)
 
   private fun isMajor(v: Double): Boolean {
     val stepsFromMin = round((v - rangeMin) / step).toInt()
@@ -238,9 +262,9 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
 
   private fun isMid(v: Double): Boolean {
     if (isMajor(v)) return false
-    val half = max(1, longStepInterval / 2)
+    val interval = if (midStepInterval > 0) midStepInterval else max(1, longStepInterval / 2)
     val stepsFromMin = round((v - rangeMin) / step).toInt()
-    return stepsFromMin % half == 0
+    return stepsFromMin % interval == 0
   }
 
   private fun valuePxAtArc(): Float {
@@ -250,7 +274,7 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
   }
 
   private fun rubberBand(value: Double): Double {
-    val band = max(2.0, step * 4.0)
+    val band = step * 4.0
     if (value < rangeMin) {
       val over = rangeMin - value
       return rangeMin - band * (1.0 - 1.0 / (1.0 + over / band))
@@ -305,9 +329,10 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
           startSnapToNearest()
           return true
         }
-        // Convert px/sec → value-units/sec.
+        // Convert px/sec → value-units/sec. Motion thresholds are in steps so every `step`
+        // gets the same feel per tick.
         val valueVelocity = -vx / valuePxAtArc()
-        if (abs(valueVelocity) > 60f) {
+        if (abs(valueVelocity) > 60f * step.toFloat()) {
           startInertia(valueVelocity.toDouble())
         } else {
           startSnapToNearest()
@@ -342,7 +367,8 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
       liveValue += velocity * dt
       val lo = rangeMin
       val hi = rangeMax
-      if (liveValue <= lo - 0.5 || liveValue >= hi + 0.5 || abs(velocity) < 1.0) {
+      val overshoot = 0.5 * step
+      if (liveValue <= lo - overshoot || liveValue >= hi + overshoot || abs(velocity) < 1.0 * step) {
         liveValue = min(max(liveValue, lo), hi)
         anim.cancel()
         startSnapToNearest()
@@ -514,12 +540,29 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
       return (-Math.PI.toFloat() / 2f) + ((v - displayLiveValue()).toFloat() * angleStep)
     }
 
-    /** Half angular span of the glass arc band — derives from `tickSpacingPx` when JS passes 0. */
+    /** Radius the glass labels are centered on (inside the arc face). */
+    private fun glassLabelRadius(radius: Float): Float =
+      max(40f, radius - dp(glassLabelArea) * 0.5f - dp(4.0))
+
+    private fun prepareReadoutPaint() {
+      readoutPaint.typeface = Typeface.create(resolveTickLabelTypeface(), Typeface.BOLD)
+      readoutPaint.textSize = sp(glassLabelFontSize) * GLASS_READOUT_SCALE
+    }
+
+    /**
+     * Half angular span of the glass arc band — derives from `tickSpacingPx` when JS passes 0, and
+     * widens when needed so a fractional readout (e.g. `"155.4"`) fits inside the band.
+     * Expects [prepareReadoutPaint] to have run for the current frame.
+     */
     private fun glassHalfAngle(radius: Float): Float {
       if (glassArcHalfAngle > 0) return glassArcHalfAngle.toFloat()
       val perStep = (dp(tickSpacingPx) / radius / max(0.0001f, step.toFloat())).toFloat()
       // 3.0 step-spans on each side so the band stays clearly wider than tall.
-      return perStep * (3.0f * step.toFloat())
+      val tickSpan = perStep * (3.0f * step.toFloat())
+      if (!hasFractionalLabels()) return tickSpan
+      val maxReadoutWidth = readoutPaint.measureText(readoutLabel(rangeMax))
+      val readoutSpan = (maxReadoutWidth / 2f + dp(GLASS_READOUT_PADDING_DP)) / glassLabelRadius(radius)
+      return max(tickSpan, readoutSpan)
     }
 
     /**
@@ -546,15 +589,20 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
     /**
      * `1` when a value is fully under the glass band (so the static label is hidden), `0` outside,
      * smooth crossfade across the band edge so static labels fade in/out as the band slides.
+     * `labelHalfWidth` (px) pushes the crossfade outward so a label only appears once it clears
+     * the band edge.
      */
-    private fun glassCoverage(distSteps: Double, radius: Float): Double {
+    private fun glassCoverage(distSteps: Double, radius: Float, labelHalfWidth: Float = 0f): Double {
       val halfA = glassHalfAngle(radius).toDouble()
       val angleStep = (dp(tickSpacingPx) / radius / max(0.0001f, step.toFloat())).toDouble()
       val halfSteps = halfA / max(0.0001, angleStep) / max(0.0001, step)
+      // Arc length of one step at the label radius — converts the label's half width into steps.
+      val stepArcAtLabel = (dp(tickSpacingPx) * glassLabelRadius(radius) / radius).toDouble()
+      val clearance = labelHalfWidth / max(0.0001, stepArcAtLabel)
       val d = abs(distSteps)
       val band = GLASS_STATIC_FADE_BAND
-      val lo = max(0.0, halfSteps - band)
-      val hi = halfSteps + band
+      val lo = max(0.0, halfSteps + clearance - band)
+      val hi = halfSteps + clearance + band
       if (d <= lo) return 1.0
       if (d >= hi) return 0.0
       val t = (d - lo) / (hi - lo)
@@ -576,6 +624,7 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
 
       labelPaint.typeface = resolveTickLabelTypeface()
       labelPaint.textSize = sp(WEIGHT_TICK_LABEL_FONT_SIZE_SP)
+      prepareReadoutPaint()
 
       val halfWidth = width / 2f
       val visibleHalfAngle = atan2(halfWidth + 60f, max(1f, radius - 8f))
@@ -586,7 +635,7 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
       val snapIdx = valueToIndex(visualLive)
       // Static major labels live INSIDE the arc face (deeper toward arc center) — `glassLabelArea`
       // controls how far below the arc edge the label center sits.
-      val staticLabelRadius = max(40f, radius - dp(glassLabelArea) * 0.5f - dp(4.0))
+      val staticLabelRadius = glassLabelRadius(radius)
       val unifiedTargetLen = dp(majorTickHeight) + dp(GLASS_UNIFIED_BONUS_DP)
 
       // Android renders a SOLID glass band (no frosted translucency like iOS), so we paint it in
@@ -595,29 +644,28 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
       // being overdrawn at the band edge — keeps the pill outline crisp).
       drawGlassBandFill(canvas, center, radius)
 
-      val lo = round(rangeMin).toInt()
-      val hi = round(rangeMax).toInt()
-      val stepInt = max(1, round(step).toInt())
-      var v = lo
-      while (v <= hi) {
-        val angle = angleFor(v.toDouble(), radius)
+      // Walk only the ticks that can land on screen — a 0.1 step spans ~2000 ticks.
+      val anglePerTick = max(0.0001f, dp(tickSpacingPx) / radius)
+      val reach = ceil(visibleHalfAngle / anglePerTick).toInt() + 1
+      val firstIdx = max(0, snapIdx - reach)
+      val lastIdx = min(totalSteps(), snapIdx + reach)
+      for (idx in firstIdx..lastIdx) {
+        val v = valueForIndex(idx)
+        val angle = angleFor(v, radius)
         val deltaAngle = abs(angle - (-Math.PI.toFloat() / 2f))
-        if (deltaAngle > visibleHalfAngle) {
-          v += stepInt
-          continue
-        }
+        if (deltaAngle > visibleHalfAngle) continue
 
         val cosA = cos(angle.toDouble()).toFloat()
         val sinA = sin(angle.toDouble()).toFloat()
-        val isMajorT = isMajor(v.toDouble())
-        val isMidT = isMid(v.toDouble())
+        val isMajorT = isMajor(v)
+        val isMidT = isMid(v)
 
         val baseLen = when {
           isMajorT -> dp(majorTickHeight)
           isMidT -> dp(midTickHeight)
           else -> dp(minorTickHeight)
         }
-        val dValue = v.toDouble() - visualLive
+        val dValue = v - visualLive
         val dStep = dValue / max(0.0001, step)
         // Snap boost — drives length, stroke bump and lift uniformly.
         val boost = glassSnapBoost(dStep).toFloat()
@@ -641,11 +689,10 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
           isMidT -> midColor
           else -> baseColor
         }
-        val valueIndex = valueToIndex(v.toDouble())
-        val distSnap = abs(valueIndex - snapIdx)
+        val distSnap = abs(idx - snapIdx)
         val ink = when (distSnap) {
           0 -> {
-            val frac = max(0f, 1f - abs(dValue / max(0.5, step)).toFloat())
+            val frac = max(0f, 1f - abs(dStep).toFloat())
             ColorUtils.blendARGB(baseInk, activeColor, frac.coerceIn(0f, 1f))
           }
           1 -> ColorUtils.blendARGB(baseInk, neighborColor, 0.45f)
@@ -660,13 +707,17 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
         // smoothly fades to 0 while the glass band slides over them and back to ~0.85 once they
         // leave the band.
         if (isMajorT) {
-          val coverage = glassCoverage(dStep, radius).toFloat()
+          val label = labelFor(v)
+          // The wide fractional readout reaches close to the band edge — keep static labels hidden
+          // until they fully clear it, or they peek out beside the readout.
+          val labelHalfWidth = if (hasFractionalLabels()) labelPaint.measureText(label) / 2f else 0f
+          val coverage = glassCoverage(dStep, radius, labelHalfWidth).toFloat()
           val alpha = max(0f, 1f - coverage) * 0.85f
           if (alpha > 0.01f) {
             val ink255 = (alpha * 255f).toInt().coerceIn(0, 255)
             drawRadialLabel(
               canvas = canvas,
-              text = labelFor(v.toDouble()),
+              text = label,
               cx = center.x,
               cy = center.y,
               radius = staticLabelRadius,
@@ -676,7 +727,6 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
             )
           }
         }
-        v += stepInt
       }
 
       drawGlassBandStroke(canvas)
@@ -829,11 +879,26 @@ class WeightRulerView(context: Context) : FrameLayout(context) {
       val baseFontPx = sp(glassLabelFontSize)
 
       // Labels live INSIDE the arc face (between arc edge and arc center, lower in view space).
-      val labelRadius = max(40f, radius - dp(glassLabelArea) * 0.5f - dp(4.0))
+      val labelRadius = glassLabelRadius(radius)
       val centerAngleRad = -PI.toFloat() / 2f
 
-      val totalSpan = max(0, round((rangeMax - rangeMin) / step).toInt())
-      val candidates = listOf(-1, 0, 1).map { snapIdx + it }.filter { it in 0..totalSpan }
+      // Fractional steps: one fixed readout of the snapped value — sliding "75.1"-wide neighbors
+      // would overlap the center label at the same tick spacing.
+      if (hasFractionalLabels()) {
+        drawRadialLabel(
+          canvas = canvas,
+          text = readoutLabel(valueForIndex(snapIdx)),
+          cx = center.x,
+          cy = center.y,
+          radius = labelRadius,
+          angle = centerAngleRad,
+          color = centerAccent,
+          paint = readoutPaint,
+        )
+        return
+      }
+
+      val candidates = listOf(-1, 0, 1).map { snapIdx + it }.filter { it in 0..totalSteps() }
 
       for (idx in candidates) {
         val v = valueForIndex(idx)

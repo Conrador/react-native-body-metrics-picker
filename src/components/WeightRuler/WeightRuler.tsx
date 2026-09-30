@@ -6,11 +6,11 @@ import {
   formatWeightRulerString,
   WEIGHT_RULER_KG_MAX,
   WEIGHT_RULER_KG_MIN,
-  WEIGHT_RULER_LONG_STEP_INTERVAL,
-  WEIGHT_RULER_STEP,
+  resolveWeightRulerStep,
   weightRulerBoundsForUnit,
   weightRulerDisplayFromKg,
   weightRulerKgFromDisplay,
+  weightRulerTickLayout,
 } from './constants/weightRulerConstants';
 import { NativeWeightRulerView } from './NativeWeightRulerView';
 import type {
@@ -24,14 +24,15 @@ import type {
  *
  * The component is unit-independent: state is stored as **canonical kilograms**, and the
  * `unit` prop only relabels the on-screen scale. When the user flips the unit switcher,
- * the JS wrapper converts the live kg value into the new display unit (whole-lb in lb mode,
- * whole-kg in kg mode) and the native view re-renders with the matching tick grid. This
- * gives a lossless round-trip: 100 kg → switch to lb → ~220 lb → switch back → 100 kg.
+ * the JS wrapper converts the live kg value into the new display unit (snapped to `step` of
+ * that unit) and the native view re-renders with the matching tick grid. This gives a
+ * lossless round-trip: 100 kg → switch to lb → ~220 lb → switch back → 100 kg.
  */
 export const WeightRuler = forwardRef<WeightRulerHandle, WeightRulerProps>(function WeightRuler(
   {
     unit,
     initialValue,
+    step,
     onValueChange,
     formatValue,
     onScrollBegin,
@@ -137,8 +138,11 @@ export const WeightRuler = forwardRef<WeightRulerHandle, WeightRulerProps>(funct
   const resolvedActiveNeighbor =
     activeNeighborTickColor ?? (Platform.OS === 'ios' ? 'rgba(255, 214, 10, 0.72)' : '');
 
-  // Tick grid is whole units of the **display** unit (lb → 110…551, kg → 50…250). Both
-  // windows cover the same physical band (50–250 kg) so unit flips preserve the live value.
+  const resolvedStep = resolveWeightRulerStep(step);
+  const tickLayout = weightRulerTickLayout(resolvedStep);
+
+  // Tick grid runs in `step` increments of the **display** unit (lb → 110…551, kg → 50…250).
+  // Both windows cover the same physical band (50–250 kg) so unit flips preserve the live value.
   const displayBounds = useMemo(() => weightRulerBoundsForUnit(unit), [unit]);
   const nativeInitialValueDisplay = useMemo(() => {
     const kg = currentValueKgRef.current;
@@ -146,9 +150,10 @@ export const WeightRuler = forwardRef<WeightRulerHandle, WeightRulerProps>(funct
     const raw = weightRulerDisplayFromKg(clampedKg, unit);
     return Math.min(displayBounds.max, Math.max(displayBounds.min, raw));
     // `initialValue` (kg) is consumed via the ref above so it can stay out of the deps;
-    // listing it here just forces a recompute when the prop changes.
+    // listing it here just forces a recompute when the prop changes. `resolvedStep` is listed
+    // for the same reason: a step change remounts the native view, which needs the live value.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unit, initialValue, displayBounds.min, displayBounds.max]);
+  }, [unit, initialValue, resolvedStep, displayBounds.min, displayBounds.max]);
 
   const nativeProps = useMemo(
     () => ({
@@ -156,9 +161,10 @@ export const WeightRuler = forwardRef<WeightRulerHandle, WeightRulerProps>(funct
       initialValue: nativeInitialValueDisplay,
       rangeMin: displayBounds.min,
       rangeMax: displayBounds.max,
-      step: WEIGHT_RULER_STEP,
-      fractionDigits: 0,
-      longStepInterval: WEIGHT_RULER_LONG_STEP_INTERVAL,
+      step: resolvedStep,
+      fractionDigits: tickLayout.fractionDigits,
+      longStepInterval: tickLayout.longStepInterval,
+      midStepInterval: tickLayout.midStepInterval,
       tickSpacingPx: tickSpacing,
       minorTickHeight,
       midTickHeight,
@@ -187,6 +193,8 @@ export const WeightRuler = forwardRef<WeightRulerHandle, WeightRulerProps>(funct
       nativeInitialValueDisplay,
       displayBounds.min,
       displayBounds.max,
+      resolvedStep,
+      tickLayout,
       tickSpacing,
       minorTickHeight,
       midTickHeight,
@@ -213,7 +221,7 @@ export const WeightRuler = forwardRef<WeightRulerHandle, WeightRulerProps>(funct
   return (
     <View style={[styles.host, style]}>
       <NativeWeightRulerView
-        key={unit}
+        key={`${unit}:${resolvedStep}`}
         style={styles.native}
         {...nativeProps}
         onValueChange={(e) => handleNativeValue(e.nativeEvent.value)}

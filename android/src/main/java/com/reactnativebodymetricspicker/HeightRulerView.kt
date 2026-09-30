@@ -12,7 +12,9 @@ import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.Interpolator
 import android.widget.FrameLayout
+import android.widget.Scroller
 import androidx.core.graphics.ColorUtils
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.LinearSnapHelper
@@ -28,6 +30,7 @@ import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.exp
 import kotlin.math.floor
+import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -108,6 +111,54 @@ private const val RULER_TRACK_SHIFT_LEFT_DP = 6.0
  * [PillBackgroundView] is laid out wider and shifted; host keeps [clipChildren] false so it can draw outside.
  */
 private const val PILL_HORIZONTAL_OUTSET_DP = 18.0
+
+/** `android.widget.Scroller`’s fling deceleration exponent: fling duration grows as distance^(1/this). */
+private val FLING_DECELERATION_RATE = ln(0.78) / ln(0.9)
+
+/** Shortest fling animation — keeps a flick that only rounds to the next tick from snapping instantly. */
+private const val FLING_MIN_DURATION_MS = 120
+
+/**
+ * Position-over-time curve of a native Android fling (the spline `android.widget.Scroller` samples),
+ * so a fling retargeted onto a tick decelerates exactly like a plain one.
+ */
+private object FlingSplineInterpolator : Interpolator {
+  private const val SAMPLES = 100
+  private val position = FloatArray(SAMPLES + 1)
+
+  init {
+    val inflexion = 0.35f
+    val startTension = 0.5f
+    val endTension = 1.0f
+    val p1 = startTension * inflexion
+    val p2 = 1.0f - endTension * (1.0f - inflexion)
+    var xMin = 0.0f
+    for (i in 0 until SAMPLES) {
+      val alpha = i.toFloat() / SAMPLES
+      var xMax = 1.0f
+      var x = 0f
+      var coef = 0f
+      while (true) {
+        x = xMin + (xMax - xMin) / 2.0f
+        coef = 3.0f * x * (1.0f - x)
+        val tx = coef * ((1.0f - x) * p1 + x * p2) + x * x * x
+        if (abs(tx - alpha) < 1e-5f) break
+        if (tx > alpha) xMax = x else xMin = x
+      }
+      position[i] = coef * ((1.0f - x) * startTension + x) + x * x * x
+    }
+    position[SAMPLES] = 1.0f
+  }
+
+  override fun getInterpolation(t: Float): Float {
+    val index = (SAMPLES * t).toInt()
+    if (index >= SAMPLES) return 1.0f
+    val tInf = index.toFloat() / SAMPLES
+    val dInf = position[index]
+    val velocityCoef = (position[index + 1] - dInf) * SAMPLES
+    return dInf + (t - tInf) * velocityCoef
+  }
+}
 
 private class HeightRulerEvent(
   surfaceId: Int,
@@ -202,18 +253,17 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
   private val recyclerView = RecyclerView(context)
   /** Replaced on unit switch so [RecyclerView] does not keep the old list’s internal scroll offset. */
   private var layoutManager = LinearLayoutManager(context, RecyclerView.VERTICAL, false)
+  /**
+   * Settles on the nearest tick when a drag ends without a fling. Flings are handled by
+   * [flingToNearestTick]: LinearSnapHelper’s own fling seeks its target at a fixed speed and then
+   * brakes hard, so a strong flick stopped almost immediately instead of gliding like on iOS.
+   */
   private val snapHelper =
     object : LinearSnapHelper() {
-      override fun findTargetSnapPosition(
-        layoutManager: RecyclerView.LayoutManager,
-        velocityX: Int,
-        velocityY: Int,
-      ): Int {
-        val target = super.findTargetSnapPosition(layoutManager, velocityX, velocityY)
-        if (target == RecyclerView.NO_POSITION) return target
-        return target.coerceIn(0, totalSteps)
-      }
+      override fun onFling(velocityX: Int, velocityY: Int): Boolean = flingToNearestTick(velocityY)
     }
+  /** Only used to measure the distance and duration of a native fling; never animates. */
+  private val flingEstimator = Scroller(context)
   private val pillView = PillBackgroundView(context)
 
   var unit: String = "cm"
@@ -328,7 +378,22 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     recyclerView.adapter = rowsAdapter
     recyclerView.itemAnimator = null
     recyclerView.clipToPadding = false
-    recyclerView.clipChildren = true
+    // Rows are one tick tall, but the enlarged center label under the pill is taller than that —
+    // let it overflow into the neighbor rows (as on iOS). [recyclerClipHost] still clips the list
+    // to the ruler rect.
+    recyclerView.clipChildren = false
+    // Rows draw top to bottom, so the row below would paint over the overflowing center label —
+    // draw the row nearest the midline last instead.
+    recyclerView.setChildDrawingOrderCallback { childCount, i ->
+      if (i == 0) midlineChildDrawIndex = childIndexNearestMidline()
+      val mid = midlineChildDrawIndex
+      when {
+        mid !in 0 until childCount -> i
+        i == childCount - 1 -> mid
+        i >= mid -> i + 1
+        else -> i
+      }
+    }
     recyclerView.overScrollMode = OVER_SCROLL_NEVER
     // Host screens often wrap the ruler in a vertical ScrollView; nested scrolling lets unconsumed
     // drag at list edges scroll the parent (whole screen “jumps”). The list handles its own wheel.
@@ -438,6 +503,32 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     invalidate()
   }
 
+  /** Set while a [runPendingLayoutPass] is queued, so a burst of requests runs one pass. */
+  private var layoutPassPosted = false
+
+  /**
+   * React Native lays out native views itself and never answers a `requestLayout()` raised inside
+   * them. Without this, [RecyclerView] never runs the pass that applies a pending
+   * `scrollToPositionWithOffset` or adapter reload, and the ruler stays on row 0 (250 cm).
+   */
+  override fun requestLayout() {
+    super.requestLayout()
+    if (layoutPassPosted) return
+    layoutPassPosted = true
+    post { runPendingLayoutPass() }
+  }
+
+  private fun runPendingLayoutPass() {
+    layoutPassPosted = false
+    // Not laid out by React Native yet — its own first layout pass picks the request up.
+    if (width <= 0 || height <= 0) return
+    measure(
+      MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+      MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
+    )
+    layout(left, top, right, bottom)
+  }
+
   fun setInitialValueFromJs(v: Double) {
     initialValue = v
     pendingInitialValueOverride = v
@@ -534,6 +625,9 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     centerIndex = startIdx
     centerPosition = startIdx.toFloat()
     lastMajorHapticScrollIndex = startIdx
+    // `rebuild` runs inside `onLayout` before the list is laid out, so the list’s first pass already
+    // centers `startIdx` — otherwise it lays out from row 0 and briefly reports 250 cm.
+    layoutManager.scrollToPositionWithOffset(startIdx, recyclerCenteredItemTopOffset())
     emitValue(emitStringForIndex(startIdx))
     recalculatePillDerivedState()
     post {
@@ -575,17 +669,21 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
     }
   }
 
-  /**
-   * Scroll offset so the snapped row’s vertical center lies on the RecyclerView midline.
-   * Using [RecyclerView.paddingTop] here would push the selection down by [edgeVertPad] (extra top
-   * padding is only for drawing headroom, not for changing the optical center).
-   */
-  private fun recyclerCenteredItemTopOffset(): Int {
-    val h = recyclerView.height
-    if (h <= 0 || itemSizePx <= 0f) return recyclerView.paddingTop.coerceAtLeast(0)
+  /** Row top (px from the RecyclerView top edge) that puts the row’s center on the midline. */
+  private fun recyclerCenteredItemTop(): Int {
+    // Before its first layout the RecyclerView has no height yet — it always fills this view.
+    val h = if (recyclerView.height > 0) recyclerView.height else height
     val itemH = itemSizePx.toInt().coerceAtLeast(1)
     return max(0, (h - itemH) / 2)
   }
+
+  /**
+   * `scrollToPositionWithOffset` offset that centers a row. [LinearLayoutManager] measures the
+   * offset from the **padded** start, so the (large, centering) [RecyclerView.paddingTop] has to be
+   * subtracted — the result is usually negative.
+   */
+  private fun recyclerCenteredItemTopOffset(): Int =
+    recyclerCenteredItemTop() - recyclerView.paddingTop
 
   /**
    * Pixel-nudge after [scrollToPositionWithOffset] so the row midpoint matches the viewport center.
@@ -606,26 +704,83 @@ class HeightRulerView(context: Context) : FrameLayout(context) {
 
   /**
    * With symmetric padding and [RecyclerView.clipToPadding]=false, extra scroll can appear past the
-   * last tick (min height). We only correct **that** edge: last row top should align with
-   * [RecyclerView.paddingTop], same as [LinearLayoutManager.scrollToPositionWithOffset](…, pad).
+   * last tick (min height). We only correct **that** edge: the last row may not scroll above the
+   * midline, so it is pinned back to the centered position.
    *
-   * Do **not** clamp the top edge with `v0.top > pad`: when [paddingTop] is small, that condition
+   * Do **not** clamp the top edge the same way: when [paddingTop] is small, that condition
    * becomes true during normal scrolling and kills all movement.
    */
   private fun alignRecyclerToTickExtents(): Boolean {
     if (inScrollExtentClamp || recyclerView.height <= 0 || itemSizePx <= 0f) return false
     if (recyclerView.childCount == 0) return false
 
-    val pad = recyclerView.paddingTop
     val vN = layoutManager.findViewByPosition(totalSteps) ?: return false
-    if (vN.top >= pad - 2) return false
+    if (vN.top >= recyclerCenteredItemTop() - 2) return false
 
     inScrollExtentClamp = true
     try {
-      layoutManager.scrollToPositionWithOffset(totalSteps, pad)
+      layoutManager.scrollToPositionWithOffset(totalSteps, recyclerCenteredItemTopOffset())
     } finally {
       inScrollExtentClamp = false
     }
+    return true
+  }
+
+  /** Child drawn last in the current draw pass; see the drawing-order callback in `init`. */
+  private var midlineChildDrawIndex = -1
+
+  private fun childIndexNearestMidline(): Int {
+    val viewportCenter = recyclerView.height / 2f
+    var best = -1
+    var bestDist = Float.MAX_VALUE
+    for (i in 0 until recyclerView.childCount) {
+      val child = recyclerView.getChildAt(i) ?: continue
+      val dist = abs((child.top + child.bottom) / 2f - viewportCenter)
+      if (dist < bestDist) {
+        bestDist = dist
+        best = i
+      }
+    }
+    return best
+  }
+
+  /**
+   * Flings like a plain [RecyclerView] would — same distance and deceleration for the release
+   * velocity — but retargeted so it comes to rest with a tick centered (what iOS does through
+   * `targetContentOffset`). Returns `false` before the list is laid out, which leaves the fling to
+   * [RecyclerView] and the snap helper.
+   */
+  private fun flingToNearestTick(velocityY: Int): Boolean {
+    if (itemSizePx <= 0f) return false
+    val anchor = recyclerView.getChildAt(childIndexNearestMidline()) ?: return false
+    val anchorPos = recyclerView.getChildAdapterPosition(anchor)
+    if (anchorPos == RecyclerView.NO_POSITION) return false
+
+    val maxVelocity = recyclerView.maxFlingVelocity
+    flingEstimator.forceFinished(true)
+    flingEstimator.fling(0, 0, 0, velocityY.coerceIn(-maxVelocity, maxVelocity), 0, 0, Int.MIN_VALUE, Int.MAX_VALUE)
+    val naturalDistance = flingEstimator.finalY
+    val naturalDuration = flingEstimator.duration
+    flingEstimator.forceFinished(true)
+
+    // Rows are laid out exactly `pitch` apart, so any row’s center follows from the anchor’s.
+    val pitch = itemSizePx.toInt().coerceAtLeast(1)
+    val viewportCenter = recyclerView.height / 2f
+    val anchorCenter = (anchor.top + anchor.bottom) / 2f
+    val currentPos = anchorPos + (viewportCenter - anchorCenter) / pitch
+    val targetIdx = round(currentPos + naturalDistance.toFloat() / pitch).toInt().coerceIn(0, totalSteps)
+    val dy = round(anchorCenter + (targetIdx - anchorPos) * pitch - viewportCenter).toInt()
+    if (dy == 0) {
+      // Already centered: end the gesture so the idle handling (emit, onScrollEnd) still runs.
+      recyclerView.stopScroll()
+      return true
+    }
+    // Rounding to a tick (or stopping at either end of the range) changes the distance; keep the
+    // native relation between fling distance and duration so the glide doesn’t drag or rush.
+    val durationScale =
+      if (naturalDistance == 0) 1.0 else (abs(dy).toDouble() / abs(naturalDistance)).pow(1.0 / FLING_DECELERATION_RATE)
+    val duration = (naturalDuration * durationScale).toInt().coerceAtLeast(FLING_MIN_DURATION_MS)
+    recyclerView.smoothScrollBy(0, dy, FlingSplineInterpolator, duration)
     return true
   }
 
