@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-30
+
 ### Added
 
 - **`WeightRuler` `step` prop** — snap precision of `1` (default), `0.5` or `0.1` in the active display unit, so users can pick values like `70.5 kg` / `155.4 lb` ([#2](https://github.com/conrador/react-native-body-metrics-picker/issues/2)). Fractional steps show a single fixed readout under the glass, which widens to fit it.
@@ -23,8 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **`WeightRuler` (Android)** — the initial value was snapped with whichever `step` / range props had arrived so far, which could round a decimal `initialValue`.
 - **`HeightRuler` (Android)** — rulers opened at the top of the range (250 cm / 8′2″) instead of `initialValue`, and could jump to an unrelated value after the screen re-laid out (e.g. switching tabs). React Native drops `requestLayout()` from inside native views, so the list never applied its pending scroll; the view now runs that layout pass itself. The centering offset is also measured from the list’s padded start, as `LinearLayoutManager` expects.
 - **`HeightRuler` (Android)** — the enlarged center label under the pill was clipped at the top and bottom by its one-tick-tall row. Rows may now overflow (the ruler rect still clips the list), and the center row draws last so its neighbors never paint over it.
-
-### Removed
+- **npm package** — no longer ships local Android build output (`android/build`, `android/app/build`, including stale codegen sources): ~2 MB and 230 files less.
 
 ## [1.1.0] - 2026-05-09
 
