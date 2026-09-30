@@ -9,6 +9,8 @@ final class WeightRulerStateModel {
   var step: Double = 1
   var fractionDigits: Int = 0
   var longStepInterval: Int = 10
+  /// Ticks between mid-height ticks; `0` = `longStepInterval / 2`.
+  var midStepInterval: Int = 0
 
   var initialValue: Double = 75
   /// Last value under the pointer in the **active** unit.
@@ -80,17 +82,28 @@ final class WeightRulerStateModel {
     return String(format: "%.\(fractionDigits)f", v)
   }
 
+  /// Fixed-width label for the value under the glass (`"75.0"` rather than `"75"` when the step
+  /// is fractional) so the readout doesn't change width while scrolling.
+  func readoutLabel(forValue v: Double) -> String {
+    String(format: "%.\(max(0, fractionDigits))f", v)
+  }
+
+  /// Fractional labels are too wide for the ±1 neighbor labels under the glass — the glass then
+  /// shows a single, fixed readout of the snapped value instead.
+  var hasFractionalLabels: Bool { fractionDigits > 0 }
+
   /// True when this tick value sits on a long-step major (every `longStepInterval`).
   func isMajor(value v: Double) -> Bool {
     let stepsFromMin = Int(((v - rangeMin) / step).rounded())
     return longStepInterval > 0 && stepsFromMin % longStepInterval == 0
   }
 
-  /// True when this tick value sits on a half of `longStepInterval` (e.g. 5/10).
+  /// True when this tick value sits on a mid tick (every `midStepInterval`, default half of
+  /// `longStepInterval`, e.g. 5/10).
   func isMid(value v: Double) -> Bool {
     if isMajor(value: v) { return false }
-    let half = max(1, longStepInterval / 2)
+    let interval = midStepInterval > 0 ? midStepInterval : max(1, longStepInterval / 2)
     let stepsFromMin = Int(((v - rangeMin) / step).rounded())
-    return stepsFromMin % half == 0
+    return stepsFromMin % interval == 0
   }
 }

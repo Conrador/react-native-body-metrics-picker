@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   Fraunces_600SemiBold,
   Fraunces_700Bold,
@@ -15,7 +15,9 @@ import {
   useWeightRulerSnapshot,
   weightRulerDisplayFromKg,
   weightRulerKgFromDisplay,
+  WEIGHT_RULER_STEPS,
   type WeightRulerHandle,
+  type WeightRulerStep,
   type WeightUnit,
 } from 'react-native-body-metrics-picker';
 
@@ -63,24 +65,57 @@ const HERO = {
 const SCROLL_BOTTOM_PADDING_BASE = 32;
 
 /** Snapshot is canonical kg — convert to whatever the active switcher unit is for display. */
-function displayValueForUnit(valueKg: number, unit: WeightUnit): number {
-  return Math.round(weightRulerDisplayFromKg(valueKg, unit));
+function displayValueForUnit(valueKg: number, unit: WeightUnit, step: WeightRulerStep = 1): string {
+  const display = weightRulerDisplayFromKg(valueKg, unit);
+  return step < 1 ? display.toFixed(1) : String(Math.round(display));
 }
 
 function DemoDebugWeight({
   rulerRef,
   unit,
+  step,
 }: {
   rulerRef: React.RefObject<WeightRulerHandle | null>;
   unit: WeightUnit;
+  step?: WeightRulerStep;
 }) {
   const { valueKg } = useWeightRulerSnapshot(rulerRef, unit);
   return (
     <View style={styles.debugContainer}>
       <Text style={styles.debugLabel}>Value</Text>
       <Text style={styles.debugValue}>
-        {displayValueForUnit(valueKg, unit)} {unit}
+        {displayValueForUnit(valueKg, unit, step)} {unit}
       </Text>
+    </View>
+  );
+}
+
+function DemoStepPicker({
+  step,
+  onStepChange,
+}: {
+  step: WeightRulerStep;
+  onStepChange: (step: WeightRulerStep) => void;
+}) {
+  return (
+    <View style={styles.stepRow}>
+      {WEIGHT_RULER_STEPS.map((option) => {
+        const selected = option === step;
+        return (
+          <Pressable
+            key={option}
+            onPress={() => onStepChange(option)}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+          >
+            <View style={[styles.stepChip, selected && styles.stepChipSelected]}>
+              <Text style={[styles.stepChipText, selected && styles.stepChipTextSelected]}>
+                {option}
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -155,6 +190,8 @@ export default function WeightScreen() {
   const [switcherUnit, setSwitcherUnit] = useState<WeightUnit>('kg');
   const [darkSwitcherUnit, setDarkSwitcherUnit] = useState<WeightUnit>('kg');
   const [heroUnit, setHeroUnit] = useState<WeightUnit>('kg');
+  const [stepUnit, setStepUnit] = useState<WeightUnit>('kg');
+  const [step, setStep] = useState<WeightRulerStep>(0.1);
 
   const { bottom: safeBottomInset } = useSafeAreaInsets();
   const kgOnlyRulerRef = useRef<WeightRulerHandle>(null);
@@ -163,6 +200,7 @@ export default function WeightScreen() {
   const switcherRulerRef = useRef<WeightRulerHandle>(null);
   const darkRulerRef = useRef<WeightRulerHandle>(null);
   const heroRulerRef = useRef<WeightRulerHandle>(null);
+  const stepRulerRef = useRef<WeightRulerHandle>(null);
 
   const auroraLabelFont = Platform.select({
     ios: 'AvenirNext-DemiBold',
@@ -340,6 +378,58 @@ export default function WeightScreen() {
               />
             </View>
             <DemoDebugWeight rulerRef={switcherRulerRef} unit={switcherUnit} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ruler - decimal step</Text>
+          <Text style={styles.sectionDescription}>
+            <Text style={styles.inlineCode}>step</Text> snaps to 1, 0.5 or 0.1 of the active unit —
+            e.g. 70.5 kg or 155.4 lb.
+          </Text>
+
+          <View style={styles.rulerCard}>
+            <View style={styles.switcherWrap}>
+              <UnitSwitcher
+                variant="weight"
+                unit={stepUnit}
+                onUnitChange={setStepUnit}
+                {...(Platform.OS === 'ios'
+                  ? {
+                      trackColor: '#F3F4F6',
+                      thumbColor: '#FFFFFF',
+                      activeTextColor: '#111827',
+                      inactiveTextColor: '#6B7280',
+                      labelFontSize: 16,
+                    }
+                  : {})}
+              />
+            </View>
+            <DemoStepPicker step={step} onStepChange={setStep} />
+            <View style={styles.rulerWrap}>
+              <WeightRuler
+                ref={stepRulerRef}
+                unit={stepUnit}
+                step={step}
+                initialValue={70.5}
+                tickColor="#E5E7EB"
+                midTickColor="#6B7280"
+                majorTickColor="#111827"
+                activeTickColor="#F59E0B"
+                activeNeighborTickColor="rgba(245, 158, 11, 0.6)"
+                glassCenterLabelColor="#F59E0B"
+                tickWidth={2}
+                tickSpacing={12}
+                minorTickHeight={14}
+                midTickHeight={22}
+                majorTickHeight={34}
+                arcCenterOffset={180}
+                glassLabelFontSize={20}
+                glassLabelArea={28}
+                style={styles.rulerInner}
+              />
+            </View>
+            <DemoDebugWeight rulerRef={stepRulerRef} unit={stepUnit} step={step} />
           </View>
         </View>
 
@@ -526,6 +616,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+  },
+  stepRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 4,
+    paddingBottom: 6,
+  },
+  stepChip: {
+    minWidth: 52,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  stepChipSelected: {
+    backgroundColor: '#111827',
+  },
+  stepChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  stepChipTextSelected: {
+    color: '#FFFFFF',
   },
   rulerInner: {
     height: 200,

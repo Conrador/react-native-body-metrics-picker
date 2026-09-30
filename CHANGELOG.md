@@ -8,9 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **`WeightRuler` `step` prop** — snap precision of `1` (default), `0.5` or `0.1` in the active display unit, so users can pick values like `70.5 kg` / `155.4 lb` ([#2](https://github.com/conrador/react-native-body-metrics-picker/issues/2)). Fractional steps show a single fixed readout under the glass, which widens to fit it.
+- **`WeightRulerStep`** type and **`WEIGHT_RULER_STEPS`** constant.
+- **Example app** — “Ruler - decimal step” section with a 1 / 0.5 / 0.1 picker and kg/lb switcher.
+
 ### Changed
 
+- **`WeightRuler` (iOS + Android)** — ticks are drawn by index over the visible window only (instead of walking the whole range in whole units), and fling / overshoot / rubber-band thresholds are measured in steps so every `step` feels the same per tick.
+- **`WeightRuler` (Android)** — props are applied once per update batch (`onAfterUpdateTransaction`) instead of re-syncing after every single prop.
+- **`HeightRuler` (Android)** — flings glide like a native Android fling (same distance, duration and deceleration curve for the release velocity) and come to rest on the nearest tick, instead of `LinearSnapHelper`’s fixed-speed seek that braked hard and felt like it stopped right away.
+
 ### Fixed
+
+- **`WeightRuler` (Android)** — the initial value was snapped with whichever `step` / range props had arrived so far, which could round a decimal `initialValue`.
+- **`HeightRuler` (Android)** — rulers opened at the top of the range (250 cm / 8′2″) instead of `initialValue`, and could jump to an unrelated value after the screen re-laid out (e.g. switching tabs). React Native drops `requestLayout()` from inside native views, so the list never applied its pending scroll; the view now runs that layout pass itself. The centering offset is also measured from the list’s padded start, as `LinearLayoutManager` expects.
+- **`HeightRuler` (Android)** — the enlarged center label under the pill was clipped at the top and bottom by its one-tick-tall row. Rows may now overflow (the ruler rect still clips the list), and the center row draws last so its neighbors never paint over it.
 
 ### Removed
 

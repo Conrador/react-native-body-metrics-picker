@@ -177,6 +177,7 @@ Native horizontal **arc** (kitchen-scale) ruler on **both** platforms (**New Arc
 | ------------------------- | ------------------------- | ----------------------------------------- | ----------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `unit`                    | `'kg' \| 'lb'`            | (required)                                | Yes         | Yes     | Display scale for labels and ticks; emitted values stay **kg**.                                                                                      |
 | `initialValue`            | `number`                  | (required)                                | Yes         | Yes     | **Kilograms**; initial scroll position (not continuously synced from props after mount, but a new value re-syncs the native band).                   |
+| `step`                    | `1 \| 0.5 \| 0.1`          | `1`                                       | Yes         | Yes     | Snap precision in the **active display unit** (e.g. `0.1` → `70.5 kg` / `155.4 lb`). See [Decimal precision](#decimal-precision-step).                |
 | `onValueChange`           | `(valueKg: string) => void` | —                                       | Yes         | Yes     | Snapped weight as a decimal **kg** string (e.g. `"100.00"`).                                                                                         |
 | `formatValue`             | `(valueKg: number) => string` | —                                     | Yes         | Yes     | Feeds the optional **accessibility** announced value.                                                                                                |
 | `onScrollBegin`           | `() => void`              | —                                         | Yes         | Yes     |                                                                                                                                                      |
@@ -203,7 +204,7 @@ Native horizontal **arc** (kitchen-scale) ruler on **both** platforms (**New Arc
 | `trackColor`              | `string`                  | `''`                                      | Yes         | Yes     | Background fill behind the arc (`'transparent'` to skip).                                                                                            |
 | `style`                   | `ViewStyle`               | —                                         | Yes         | Yes     | Applied to the outer **JS** `View` around the native ruler.                                                                                          |
 
-Colour strings parse exactly like `HeightRuler` (above). The wrapper forwards `rangeMin` / `rangeMax` / `step` to the codegen spec for unit-aware tick rendering — internally the canonical band is always **50–250 kg**.
+Colour strings parse exactly like `HeightRuler` (above). The wrapper derives `rangeMin` / `rangeMax` and the tick hierarchy from `unit` + `step` and forwards them to the codegen spec — internally the canonical band is always **50–250 kg**.
 
 ### `UnitSwitcher` props
 
@@ -235,6 +236,20 @@ Weight mode displays **`kg` / `lbs`** labels and emits **`'kg' | 'lb'`**; height
 - **`HeightRuler`** — both platforms internally clamp to **`100 cm` … `250 cm`**. The `rangeMin` / `rangeMax` values on the native component exist for **codegen** only.
 - **`WeightRuler`** — canonical band is **`50 kg` … `250 kg`**. In **lb** mode the native tick grid runs from **`110 lb`** to **`551 lb`** (rounded to whole pounds) — i.e. the same physical extent — so swapping units never moves the live value.
 
+### Decimal precision (`step`)
+
+`WeightRuler` snaps to whole units by default. Pass **`step={0.5}`** or **`step={0.1}`** to pick values like `70.5 kg` or `155.4 lb` — the step always applies to the **active display unit**, and `onValueChange` / snapshots stay canonical **kg** strings (e.g. `"70.49"` for `155.4 lb`).
+
+| `step` | Tick | Mid tick | Labelled major |
+| ------ | ---- | -------- | -------------- |
+| `1`    | 1    | every 5  | every 10       |
+| `0.5`  | 0.5  | every 1  | every 5        |
+| `0.1`  | 0.1  | every 0.5| every 1        |
+
+- Every tick is one step and keeps `tickSpacing`, so labelled majors sit at the same on-screen distance for every `step` — but a finer step means **more scrolling** for the same weight change (a fling at `0.1` covers ~5 kg instead of ~50 kg). Start from an `initialValue` close to the expected weight.
+- With a fractional step the glass shows a single fixed readout of the snapped value (e.g. `70.5`) instead of the snapped label + two neighbours, and widens (when `glassArcHalfAngle` is `0`) so the widest value fits.
+- Changing `step` remounts the native view, keeping the current value.
+
 ### Layout
 
 Height for both rulers is driven by **parent layout**, not by a viewport prop. Wrap in a sized container or use `flex: 1` under a bounded parent. Each ruler ships a sensible **`minHeight`** floor (HeightRuler ≈ **240 dp**, WeightRuler ≈ **180 dp**) so they stay usable inside scroll views.
@@ -244,7 +259,7 @@ Height for both rulers is driven by **parent layout**, not by a viewport prop. W
 Exported from the package root:
 
 - **Height** — **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**.
-- **Weight** — **`formatWeightRulerString`**, **`weightRulerBoundsForUnit`**, **`weightRulerDisplayFromKg`**, **`weightRulerKgFromDisplay`**, **`KG_PER_LB`**, **`LB_PER_KG`**, **`WEIGHT_RULER_KG_MIN`**, **`WEIGHT_RULER_KG_MAX`**, **`WEIGHT_RULER_STEP`**.
+- **Weight** — **`formatWeightRulerString`**, **`weightRulerBoundsForUnit`**, **`weightRulerDisplayFromKg`**, **`weightRulerKgFromDisplay`**, **`KG_PER_LB`**, **`LB_PER_KG`**, **`WEIGHT_RULER_KG_MIN`**, **`WEIGHT_RULER_KG_MAX`**, **`WEIGHT_RULER_STEP`** (default step), **`WEIGHT_RULER_STEPS`** (all supported steps).
 
 The weight conversion helpers use the exact NIST factor (`1 lb = 0.45359237 kg`), so any kg ⇄ lb round-trip via `weightRulerDisplayFromKg` / `weightRulerKgFromDisplay` is lossless to within float precision.
 
@@ -253,10 +268,10 @@ The weight conversion helpers use the exact NIST factor (`1 lb = 0.45359237 kg`)
 ## Exports (`src/index.ts`)
 
 - **`HeightRuler`**, **`useHeightRulerSnapshot`**, types **`HeightRulerProps`**, **`HeightRulerHandle`**, **`HeightRulerLiveSnapshot`**
-- **`WeightRuler`**, **`useWeightRulerSnapshot`**, types **`WeightRulerProps`**, **`WeightRulerHandle`**, **`WeightRulerLiveSnapshot`**
+- **`WeightRuler`**, **`useWeightRulerSnapshot`**, types **`WeightRulerProps`**, **`WeightRulerHandle`**, **`WeightRulerLiveSnapshot`**, **`WeightRulerStep`**
 - **`UnitSwitcher`**, **`UnitSwitcherProps`**, **`UnitSwitcherHeightProps`**, **`UnitSwitcherWeightProps`**
 - Height helpers: **`formatHeightRulerCmString`**, **`nativeRulerBoundsForUnit`**, **`CM_PER_FOOT`**, **`NATIVE_RULER_CM_MIN`**, **`NATIVE_RULER_CM_MAX`**
-- Weight helpers: **`formatWeightRulerString`**, **`weightRulerBoundsForUnit`**, **`weightRulerDisplayFromKg`**, **`weightRulerKgFromDisplay`**, **`KG_PER_LB`**, **`LB_PER_KG`**, **`WEIGHT_RULER_KG_MIN`**, **`WEIGHT_RULER_KG_MAX`**, **`WEIGHT_RULER_STEP`**
+- Weight helpers: **`formatWeightRulerString`**, **`weightRulerBoundsForUnit`**, **`weightRulerDisplayFromKg`**, **`weightRulerKgFromDisplay`**, **`KG_PER_LB`**, **`LB_PER_KG`**, **`WEIGHT_RULER_KG_MIN`**, **`WEIGHT_RULER_KG_MAX`**, **`WEIGHT_RULER_STEP`**, **`WEIGHT_RULER_STEPS`**
 - Shared types: **`HeightUnit`**, **`WeightUnit`**, **`UnitSystem`**, **`HeightValue`**, **`WeightValue`**, etc.
 
 ## Example app (this repo)

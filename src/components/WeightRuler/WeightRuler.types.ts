@@ -1,6 +1,7 @@
 import type { ViewStyle } from 'react-native';
 
 import type { WeightUnit } from '../../types';
+import type { WeightRulerStep } from './constants/weightRulerConstants';
 
 export type WeightRulerLiveSnapshot = {
   /** Canonical weight in **kilograms** — ruler state is unit-independent. */
@@ -25,9 +26,15 @@ export interface WeightRulerProps {
   unit: WeightUnit;
   /**
    * Initial weight in **kilograms** (canonical).
-   * Re-applied only on remount of the underlying native view (driven by `unit` change).
+   * Re-applied only on remount of the underlying native view (driven by `unit` / `step` change).
    */
   initialValue: number;
+  /**
+   * Snap precision in the **active display unit**: `1` (default), `0.5` or `0.1` — e.g. `0.1`
+   * lets users pick `70.5 kg` / `155.4 lb`. Every tick is one step, so finer steps mean more
+   * scrolling for the same weight change. Changing it remounts the native view.
+   */
+  step?: WeightRulerStep;
   /** Snapped weight in **kilograms** as a decimal string, e.g. `"100.00"`. */
   onValueChange?: (valueKg: string) => void;
 

@@ -5,3 +5,4 @@ export type {
   WeightRulerProps,
 } from './WeightRuler.types';
 export { useWeightRulerSnapshot } from './useWeightRulerSnapshot';
+export type { WeightRulerStep } from './constants/weightRulerConstants';

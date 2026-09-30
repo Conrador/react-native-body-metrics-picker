@@ -1,3 +1,4 @@
+import CoreText
 import UIKit
 
 // MARK: - Custom font resolver (matches Expo / RN `fontFamily` keys)
@@ -471,7 +472,8 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
     case .ended, .cancelled, .failed:
       let velocityX = Double(gr.velocity(in: self).x)
       inertialVelocity = -velocityX / Double(valuePxAtArc())
-      if abs(inertialVelocity) > 6 {
+      // Motion thresholds are in steps so every `step` gets the same feel per tick.
+      if abs(inertialVelocity) > 6 * model.step {
         startInertia()
       } else {
         startSnapToNearest()
@@ -490,7 +492,7 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
   private func rubberBand(value: Double) -> Double {
     let lo = model.rangeMin
     let hi = model.rangeMax
-    let band = max(2.0, model.step * 4.0)
+    let band = model.step * 4.0
     if value < lo {
       let over = lo - value
       return lo - band * (1.0 - 1.0 / (1.0 + over / band))
@@ -574,12 +576,13 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
     inertialVelocity *= exp(-friction * dt)
     liveValue += inertialVelocity * dt
     let lo = model.rangeMin, hi = model.rangeMax
-    if liveValue <= lo - 0.5 || liveValue >= hi + 0.5 {
+    let overshoot = 0.5 * model.step
+    if liveValue <= lo - overshoot || liveValue >= hi + overshoot {
       liveValue = min(max(liveValue, lo), hi)
       startSnapToNearest()
       return
     }
-    if abs(inertialVelocity) < 1.0 {
+    if abs(inertialVelocity) < 1.0 * model.step {
       startSnapToNearest()
     }
   }
@@ -645,6 +648,47 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
   /// Extra radial padding (dp) that pushes the entire glass band outward — i.e. visually UP — so it
   /// sits a little higher above the tick tips and the static labels below have more breathing room.
   private let glassRadialOffset: CGFloat = 8
+  /// Fractional-step readout: size relative to `glassLabelFontSize` (the snapped label's peak
+  /// scale in neighbor-label mode) and horizontal room kept free on each side inside the glass.
+  private let glassReadoutScale: CGFloat = 1.3
+  private let glassReadoutPadding: CGFloat = 10
+
+  private var readoutFontCache: (key: String, font: UIFont)?
+  private var readoutWidthCache: (key: String, width: CGFloat)?
+
+  /// Heavy readout font with tabular digits so the fixed readout doesn't jitter as digits change.
+  private func readoutFont() -> UIFont {
+    let size = CGFloat(model.glassLabelFontSize) * glassReadoutScale
+    let key = "\(model.fontFamily ?? "")|\(size)"
+    if let cache = readoutFontCache, cache.key == key { return cache.font }
+    let base = WeightRulerExpoFontResolver.uiFont(familyKey: model.fontFamily, size: size, weight: .heavy)
+      ?? .systemFont(ofSize: size, weight: .heavy)
+    let descriptor = base.fontDescriptor.addingAttributes([
+      .featureSettings: [[
+        UIFontDescriptor.FeatureKey.type: kNumberSpacingType,
+        UIFontDescriptor.FeatureKey.selector: kMonospacedNumbersSelector,
+      ]],
+    ])
+    let font = UIFont(descriptor: descriptor, size: size)
+    readoutFontCache = (key, font)
+    return font
+  }
+
+  /// Width of the widest readout the range can produce (the `rangeMax` label).
+  private func maxReadoutWidth() -> CGFloat {
+    let font = readoutFont()
+    let text = model.readoutLabel(forValue: model.rangeMax)
+    let key = "\(text)|\(font.fontName)|\(font.pointSize)"
+    if let cache = readoutWidthCache, cache.key == key { return cache.width }
+    let width = (text as NSString).size(withAttributes: [.font: font]).width
+    readoutWidthCache = (key, width)
+    return width
+  }
+
+  /// Radius the glass labels are centered on (inside the arc face).
+  private func glassLabelRadius(geom: (center: CGPoint, radius: CGFloat)) -> CGFloat {
+    max(40, geom.radius - CGFloat(model.glassLabelArea) * 0.5 - 4)
+  }
 
   /// Vertical reserve (along the radius) above the arc edge that fits ticks pointing outward,
   /// the snapped lift + unified bonus, and the glass top padding. Labels live INSIDE the arc face
@@ -680,14 +724,18 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
   }
 
   /// Half angular span used by the glass band. Derives from `tickSpacingPx` for a clearly horizontal
-  /// strip — covers ~6 ticks total when the JS default `glassArcHalfAngle = 0` is passed.
+  /// strip — covers ~6 ticks total when the JS default `glassArcHalfAngle = 0` is passed — and widens
+  /// when needed so a fractional readout (e.g. `"155.4"`) fits inside the band.
   private func glassHalfAngle(geom: (center: CGPoint, radius: CGFloat)) -> CGFloat {
     if model.glassArcHalfAngle > 0 {
       return CGFloat(model.glassArcHalfAngle)
     }
     let perStep = CGFloat(model.tickSpacingPx) / geom.radius / CGFloat(max(0.0001, model.step))
     // 3.0 step-spans on each side so the glass is clearly wider than tall (3 labels + side overhang).
-    return perStep * (3.0 * model.step)
+    let tickSpan = perStep * (3.0 * model.step)
+    guard model.hasFractionalLabels else { return tickSpan }
+    let readoutSpan = (maxReadoutWidth() / 2 + glassReadoutPadding) / glassLabelRadius(geom: geom)
+    return max(tickSpan, readoutSpan)
   }
 
   /// Snap-centered boost (in [0, 1]) used uniformly for tick growth, stroke bump, and radial lift.
@@ -710,15 +758,23 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
 
   /// `1` when a value lives **inside** the glass band (so static labels underneath the glass are
   /// fully hidden), `0` outside, with a smooth crossfade across the band edge so static labels
-  /// fade in/out as the band slides over them.
-  private func glassCoverage(distSteps: Double, geom: (center: CGPoint, radius: CGFloat)) -> Double {
+  /// fade in/out as the band slides over them. `labelHalfWidth` (pt) pushes the crossfade outward so
+  /// a label only appears once it clears the band edge.
+  private func glassCoverage(
+    distSteps: Double,
+    geom: (center: CGPoint, radius: CGFloat),
+    labelHalfWidth: CGFloat = 0
+  ) -> Double {
     let halfA = Double(glassHalfAngle(geom: geom))
     let angleStep = Double(model.tickSpacingPx) / Double(geom.radius) / max(0.0001, model.step)
     let halfSteps = halfA / max(0.0001, angleStep) / max(0.0001, model.step)
+    // Arc length of one step at the label radius — converts the label's half width into steps.
+    let stepArcAtLabel = Double(model.tickSpacingPx) * Double(glassLabelRadius(geom: geom) / geom.radius)
+    let clearance = Double(labelHalfWidth) / max(0.0001, stepArcAtLabel)
     let d = abs(distSteps)
     let band = Double(glassStaticFadeBand)
-    let lo = max(0, halfSteps - band)
-    let hi = halfSteps + band
+    let lo = max(0, halfSteps + clearance - band)
+    let hi = halfSteps + clearance + band
     if d <= lo { return 1 }
     if d >= hi { return 0 }
     let t = (d - lo) / (hi - lo)
@@ -728,9 +784,6 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
 
   private func drawArcRuler(in ctx: CGContext) {
     let geom = arcGeometry()
-    let lo = Int(model.rangeMin)
-    let hi = Int(model.rangeMax)
-    let stepInt = max(1, Int(model.step))
 
     let halfWidth = bounds.width / 2.0
     let visibleHalfAngle = atan2(halfWidth + 60, geom.radius - 8)
@@ -753,21 +806,24 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
     let snappedIndex = model.indexForValue(visualLive)
     // Static major labels live INSIDE the arc face (deeper toward arc center) — `glassLabelArea` controls
     // how far below the arc edge the label center sits, leaving the tick area entirely above the arc.
-    let staticLabelRadius = max(40, geom.radius - CGFloat(model.glassLabelArea) * 0.5 - 4)
+    let staticLabelRadius = glassLabelRadius(geom: geom)
     let unifiedTargetLen = CGFloat(model.majorTickHeight) + glassUnifiedTickBonus
-    var v = lo
-    while v <= hi {
-      let dValue = Double(v) - visualLive
+    // Walk only the ticks that can land on screen — a 0.1 step spans ~2000 ticks.
+    let anglePerTick = max(0.0001, CGFloat(model.tickSpacingPx) / geom.radius)
+    let reach = Int((visibleHalfAngle / anglePerTick).rounded(.up)) + 1
+    let firstIdx = max(0, snappedIndex - reach)
+    let lastIdx = min(model.totalSteps, snappedIndex + reach)
+    guard firstIdx <= lastIdx else { return }
+    for idx in firstIdx...lastIdx {
+      let v = model.valueForIndex(idx)
+      let dValue = v - visualLive
       let dStep = dValue / max(0.0001, model.step)
-      let angle = angleFor(value: Double(v), geom: geom)
+      let angle = angleFor(value: v, geom: geom)
       let deltaAngle = abs(angle - (-CGFloat.pi / 2.0))
-      if deltaAngle > visibleHalfAngle {
-        v += stepInt
-        continue
-      }
+      if deltaAngle > visibleHalfAngle { continue }
       let cosA = cos(angle), sinA = sin(angle)
-      let isMajor = model.isMajor(value: Double(v))
-      let isMid = model.isMid(value: Double(v))
+      let isMajor = model.isMajor(value: v)
+      let isMid = model.isMid(value: v)
 
       // Snap boost — drives tick length, stroke bump, **and** radial lift uniformly.
       let boost = glassSnapBoost(distSteps: dStep)
@@ -791,11 +847,10 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
       let pBase = CGPoint(x: geom.center.x + cosA * inner, y: geom.center.y + sinA * inner)
       let pTip = CGPoint(x: geom.center.x + cosA * outer, y: geom.center.y + sinA * outer)
 
-      let valueIndex = model.indexForValue(Double(v))
-      let distSnap = abs(valueIndex - snappedIndex)
+      let distSnap = abs(idx - snappedIndex)
       var color: UIColor = isMajor ? majorColor : (isMid ? midColor : baseColor)
       if distSnap == 0 {
-        let fraction = max(0.0, 1.0 - abs(dValue / max(0.5, model.step)))
+        let fraction = max(0.0, 1.0 - abs(dStep))
         color = WRColor.blend(color, with: activeColor, t: CGFloat(fraction))
       } else if distSnap == 1 {
         color = WRColor.blend(color, with: neighborColor, t: 0.45)
@@ -816,10 +871,15 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
       // alpha smoothly fades to 0 while the glass band slides over them and back to ~0.85 once they
       // leave the band.
       if isMajor {
-        let coverage = glassCoverage(distSteps: dStep, geom: geom)
+        let label = model.tickLabel(forValue: v)
+        // The wide fractional readout reaches close to the band edge — keep static labels hidden
+        // until they fully clear it, or they peek out beside the readout.
+        let labelHalfWidth = model.hasFractionalLabels
+          ? (label as NSString).size(withAttributes: [.font: labelFont]).width / 2
+          : 0
+        let coverage = glassCoverage(distSteps: dStep, geom: geom, labelHalfWidth: labelHalfWidth)
         let alpha = max(0.0, 1.0 - coverage) * 0.85
         if alpha > 0.01 {
-          let label = model.tickLabel(forValue: Double(v))
           drawRadialLabel(
             ctx: ctx,
             text: label,
@@ -831,7 +891,6 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
           )
         }
       }
-      v += stepInt
     }
   }
 
@@ -858,8 +917,23 @@ final class WeightRulerUIKitView: UIView, UIGestureRecognizerDelegate {
     let baseFontSize = CGFloat(model.glassLabelFontSize)
     let labelFontFamily = model.fontFamily
     // Labels live INSIDE the arc face (between arc edge and arc center, lower in view space).
-    let labelRadius = max(40, geom.radius - CGFloat(model.glassLabelArea) * 0.5 - 4)
+    let labelRadius = glassLabelRadius(geom: geom)
     let centerAngle: CGFloat = -CGFloat.pi / 2.0
+
+    // Fractional steps: one fixed readout of the snapped value — sliding "75.1"-wide neighbors
+    // would overlap the center label at the same tick spacing.
+    if model.hasFractionalLabels {
+      drawRadialLabel(
+        ctx: ctx,
+        text: model.readoutLabel(forValue: model.valueForIndex(snappedIdx)),
+        center: geom.center,
+        radius: labelRadius,
+        angle: centerAngle,
+        font: readoutFont(),
+        color: centerAccent
+      )
+      return
+    }
 
     for idx in candidates {
       let v = model.valueForIndex(idx)

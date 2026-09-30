@@ -85,6 +85,9 @@ public final class RNWeightRulerHostingView: UIView {
   @objc public var longStepInterval: Int = 10 {
     didSet { model.longStepInterval = longStepInterval; scheduleSync() }
   }
+  @objc public var midStepInterval: Int = 0 {
+    didSet { model.midStepInterval = midStepInterval; scheduleSync() }
+  }
   @objc public var initialValue: Double = 75 {
     didSet { model.initialValue = initialValue; scheduleSync() }
   }
